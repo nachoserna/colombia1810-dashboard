@@ -10,87 +10,80 @@ exports.handler = async (event) => {
 
   const db = await getDb();
 
-  // Get clan with memberList
   const clan = await db.collection('clans').findOne({ tag: clanTag });
   if (!clan) return err('Clan not found', 404);
 
-  // Get today's snapshots for these members for richer data
   const today = new Date().toISOString().split('T')[0];
   const snapshots = await db.collection('player_snapshots')
-    .find({ clanTag, snapshotDate: today })
-    .toArray();
+    .find({ clanTag, snapshotDate: today }).toArray();
   const snapMap = {};
   snapshots.forEach(s => { snapMap[s.tag] = s; });
 
-  // Current season (YYYY-MM)
+  // Last 2 CWL seasons
   const now = new Date();
-  const currentSeason = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const prevMonth = now.getMonth() === 0 ? 12 : now.getMonth();
-  const prevYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
-  const prevSeason = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
-
-  // War stats — current month
-  const warStartOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const recentWars = await db.collection('clan_wars')
-    .find({ clanTag, state: 'warEnded', warType: 'regular', startTime: { $gte: warStartOfMonth } })
-    .toArray();
-
-  // CWL stats — current + previous season
-  const cwlWars = await db.collection('cwl_wars')
-    .find({ clanTag, state: 'warEnded', season: { $in: [currentSeason, prevSeason] } })
-    .toArray();
-
-  // Aggregate war perfects (3-star all attacks) per player
-  const warPerf = {}; // tag -> { attacks, threeStars }
-  for (const war of recentWars) {
-    const apm = war.attacksPerMember || 2;
-    for (const m of war.clan?.members || []) {
-      if (!warPerf[m.tag]) warPerf[m.tag] = { attacks: 0, threeStars: 0 };
-      for (const atk of m.attacks || []) {
-        warPerf[m.tag].attacks++;
-        if (atk.stars === 3) warPerf[m.tag].threeStars++;
-      }
-    }
+  const cwlSeasons = [];
+  for (let i = 0; i < 2; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    cwlSeasons.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
   }
 
-  // Aggregate CWL perfects per player
-  const cwlPerf = {};
+  // Last 2 war months
+  const warMonths = [];
+  for (let i = 0; i < 2; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    warMonths.push(d);
+  }
+
+  // Wars — current month
+  const wars0 = await db.collection('clan_wars')
+    .find({ clanTag, state: 'warEnded', warType: 'regular',
+      startTime: { $gte: warMonths[0], $lt: new Date(now.getFullYear(), now.getMonth() + 1, 1) }
+    }).toArray();
+
+  // Wars — previous month
+  const wars1 = await db.collection('clan_wars')
+    .find({ clanTag, state: 'warEnded', warType: 'regular',
+      startTime: { $gte: warMonths[1], $lt: warMonths[0] }
+    }).toArray();
+
+  // CWL wars — last 2 seasons
+  const cwlWars = await db.collection('cwl_wars')
+    .find({ clanTag, state: 'warEnded', season: { $in: cwlSeasons } }).toArray();
+
+  function aggregateWarPerf(wars) {
+    const perf = {};
+    for (const war of wars) {
+      for (const m of war.clan?.members || []) {
+        if (!perf[m.tag]) perf[m.tag] = { attacks: 0, threeStars: 0 };
+        for (const atk of m.attacks || []) {
+          perf[m.tag].attacks++;
+          if (atk.stars === 3) perf[m.tag].threeStars++;
+        }
+      }
+    }
+    return perf;
+  }
+
+  const warPerf0 = aggregateWarPerf(wars0);
+  const warPerf1 = aggregateWarPerf(wars1);
+
+  const cwlBySeason = {};
   for (const war of cwlWars) {
     for (const m of war.clan?.members || []) {
-      if (!cwlPerf[m.tag]) cwlPerf[m.tag] = { attacks: 0, threeStars: 0 };
+      if (!cwlBySeason[m.tag]) cwlBySeason[m.tag] = {};
+      if (!cwlBySeason[m.tag][war.season]) cwlBySeason[m.tag][war.season] = { attacks: 0, threeStars: 0 };
       for (const atk of m.attacks || []) {
-        cwlPerf[m.tag].attacks++;
-        if (atk.stars === 3) cwlPerf[m.tag].threeStars++;
+        cwlBySeason[m.tag][war.season].attacks++;
+        if (atk.stars === 3) cwlBySeason[m.tag][war.season].threeStars++;
       }
     }
   }
 
-  // Build member list merging clan data + snapshots + stats
-  const members = (clan.memberList || []).map(m => {
-    const snap = snapMap[m.tag] || {};
-    const wp = warPerf[m.tag];
-    const cp = cwlPerf[m.tag];
-    return {
-      tag: m.tag,
-      name: m.name,
-      role: m.role,
-      townHallLevel: m.townHallLevel || snap.townHallLevel,
-      expLevel: m.expLevel || snap.expLevel,
-      trophies: m.trophies || snap.trophies || 0,
-      league: m.league || snap.league || 'Unranked',
-      leagueId: m.leagueId || snap.leagueId || 0,
-      leagueIconUrl: m.leagueIconUrl || null,
-      heroes: snap.heroes || {},
-      donations: snap.donations || 0,
-      donationsReceived: snap.donationsReceived || 0,
-      warThreeStarRate: wp?.attacks > 0 ? +((wp.threeStars / wp.attacks) * 100).toFixed(1) : null,
-      warAttacks: wp?.attacks || 0,
-      cwlThreeStarRate: cp?.attacks > 0 ? +((cp.threeStars / cp.attacks) * 100).toFixed(1) : null,
-      cwlAttacks: cp?.attacks || 0,
-    };
-  });
+  function rate(perf) {
+    if (!perf || perf.attacks === 0) return null;
+    return +((perf.threeStars / perf.attacks) * 100).toFixed(1);
+  }
 
-  // Sort by leagueId desc, then trophies desc
   const LEAGUE_ORDER = {
     'Legend League': 100, 'Titan League I': 91, 'Titan League II': 90, 'Titan League III': 89,
     'Champion League I': 81, 'Champion League II': 80, 'Champion League III': 79,
@@ -102,6 +95,23 @@ exports.handler = async (event) => {
     'Unranked': 0
   };
 
+  const members = (clan.memberList || []).map(m => {
+    const snap = snapMap[m.tag] || {};
+    const cs = cwlBySeason[m.tag] || {};
+    return {
+      tag: m.tag, name: m.name, role: m.role,
+      townHallLevel: m.townHallLevel || snap.townHallLevel,
+      trophies: m.trophies || snap.trophies || 0,
+      league: m.league || snap.league || 'Unranked',
+      leagueId: m.leagueId || snap.leagueId || 0,
+      leagueIconUrl: m.leagueIconUrl || null,
+      cwl0: rate(cs[cwlSeasons[0]]),
+      cwl1: rate(cs[cwlSeasons[1]]),
+      war0: rate(warPerf0[m.tag]),
+      war1: rate(warPerf1[m.tag]),
+    };
+  });
+
   members.sort((a, b) => {
     const la = LEAGUE_ORDER[a.league] ?? (a.leagueId || 0);
     const lb = LEAGUE_ORDER[b.league] ?? (b.leagueId || 0);
@@ -111,18 +121,12 @@ exports.handler = async (event) => {
 
   return ok({
     clan: {
-      tag: clan.tag,
-      name: clan.name,
-      level: clan.level,
-      badgeUrls: clan.badgeUrls,
-      warLeague: clan.warLeague,
-      warLeagueId: clan.warLeagueId,
+      tag: clan.tag, name: clan.name, level: clan.level,
+      badgeUrls: clan.badgeUrls, warLeague: clan.warLeague,
       members: clan.members,
-      warWins: clan.warWins,
     },
     members,
-    currentSeason,
-    totalWars: recentWars.length,
-    totalCWLWars: cwlWars.length,
+    seasons: cwlSeasons,
+    warMonths: warMonths.map(d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`),
   });
 };

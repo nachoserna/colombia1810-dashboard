@@ -332,53 +332,64 @@ async function loadClanDetail(tag){
   const cleanTag=tag.replace('#','%23');
   const data=await api('clan-detail?tag='+cleanTag);
   if(!data)return;
-  const {clan,members}=data;
+  const {clan,members,seasons}=data;
   const badge=clan.badgeUrls?.medium
     ?`<img class="clan-detail-badge" src="${clan.badgeUrls.medium}" alt="${clan.name}">`
     :`<div style="width:64px;height:64px;background:var(--accent-light);display:flex;align-items:center;justify-content:center;font-size:32px;">⚔️</div>`;
   const ROLE_MAP={leader:'Líder',coLeader:'CoLíder',admin:'Anciano',member:'Miembro'};
   const LEAGUE_ORDER={'Legend League':100,'Titan League I':91,'Titan League II':90,'Titan League III':89,'Champion League I':81,'Champion League II':80,'Champion League III':79,'Master League I':71,'Master League II':70,'Master League III':69,'Crystal League I':61,'Crystal League II':60,'Crystal League III':59,'Gold League I':51,'Gold League II':50,'Gold League III':49,'Silver League I':41,'Silver League II':40,'Silver League III':39,'Bronze League I':31,'Bronze League II':30,'Bronze League III':29,'Unranked':0};
-  let _dm=members,_sc='league',_sd=-1,_seasons=data.seasons||[];
-  function _th(l,c,num){
-    const a=_sc===c,ar=a?(_sd===-1?' ↓':' ↑'):'',st=a?'color:var(--accent)':'';
-    return`<th${num?' class="th-num"':''} style="cursor:pointer;${st}" onclick="sortDetail('${c}')">${l}${ar}</th>`;
+
+  // seasons[0]=current, [1]=prev, [2]=prev-1
+  const s0=seasons?.[0]||'', s1=seasons?.[1]||'', s2=seasons?.[2]||'';
+  function fmtS(s){if(!s)return'—';const[y,m]=s.split('-');const M=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];return M[parseInt(m)-1]+' '+y.slice(2);}
+
+  let _dm=members, _sc='league', _sd=-1;
+
+  function _th(l,col,num){
+    const a=_sc===col, ar=a?(_sd===-1?' ↓':' ↑'):'', st=a?'color:var(--accent)':'';
+    return `<th${num?' class="th-num"':''} style="cursor:pointer;${st}" onclick="sortDetail('${col}')">${l}${ar}</th>`;
   }
+
+  function pct(v){
+    if(v===null||v===undefined)return '<span style="color:var(--muted)">—</span>';
+    return `<span class="${rateClass(v)}">${v}%</span>`;
+  }
+
   function renderDetailTable(){
     const sorted=[..._dm].sort((a,b)=>{
       let va,vb;
       if(_sc==='league'){va=LEAGUE_ORDER[a.league]??a.leagueId??0;vb=LEAGUE_ORDER[b.league]??b.leagueId??0;}
       else if(_sc==='trophies'){va=a.trophies||0;vb=b.trophies||0;}
       else if(_sc==='th'){va=a.townHallLevel||0;vb=b.townHallLevel||0;}
-      else if(_sc==='war'){va=a.warThreeStarRate??-1;vb=b.warThreeStarRate??-1;}
+      else if(_sc==='war0'){va=a.war0??-1;vb=b.war0??-1;}
+      else if(_sc==='war1'){va=a.war1??-1;vb=b.war1??-1;}
       else if(_sc==='cwl0'){va=a.cwl0??-1;vb=b.cwl0??-1;}
       else if(_sc==='cwl1'){va=a.cwl1??-1;vb=b.cwl1??-1;}
-      else if(_sc==='cwl2'){va=a.cwl2??-1;vb=b.cwl2??-1;}
-      else if(_sc==='don'){va=a.donations||0;vb=b.donations||0;}
       else if(_sc==='name'){va=a.name.toLowerCase();vb=b.name.toLowerCase();return _sd*(va<vb?-1:va>vb?1:0);}
       return _sd*(vb-va);
     });
-    const s=_seasons||['','',''];
-    function fmtS(s){if(!s)return'—';const[y,m]=s.split('-');const M=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];return M[parseInt(m)-1]+' '+y;}
     document.getElementById('detail-table-head').innerHTML=
-      `<tr>${_th('#','#',false)}${_th('Jugador','name',false)}${_th('Liga','league',false)}${_th('TH','th',true)}${_th('Trofeos','trophies',true)}<th>Rol</th>${_th('% 3⭐ Guerra','war',true)}<th class="th-num" style="cursor:pointer" onclick="sortDetail('cwl0')">CWL ${fmtS(s[0])}</th><th class="th-num" style="cursor:pointer" onclick="sortDetail('cwl1')">CWL ${fmtS(s[1])}</th><th class="th-num" style="cursor:pointer" onclick="sortDetail('cwl2')">CWL ${fmtS(s[2])}</th></tr>`;
+      `<tr>${_th('#','#',false)}${_th('Jugador','name',false)}${_th('Liga','league',false)}${_th('TH','th',true)}${_th('Trofeos','trophies',true)}<th>Rol</th>${_th('CWL '+fmtS(s0),'cwl0',true)}${_th('CWL '+fmtS(s1),'cwl1',true)}${_th('Guerra actual','war0',true)}${_th('Guerra anterior','war1',true)}</tr>`;
     document.getElementById('detail-table-body').innerHTML=sorted.map((m,i)=>{
       const li=m.leagueIconUrl?`<img class="league-icon" src="${m.leagueIconUrl}" alt="">`:'';
-      const wr=m.warThreeStarRate!==null?`<span class="${rateClass(m.warThreeStarRate)}">${m.warThreeStarRate}%</span>`:'<span style="color:var(--muted)">—</span>';
-      function cwlCell(v){return v!==null?`<span class="${rateClass(v)}">${v}%</span>`:'<span style="color:var(--muted)">—</span>';}
       const rc=m.role==='leader'?'role-leader':m.role==='coLeader'?'role-coLeader':m.role==='admin'?'role-admin':'role-member';
-      return`<tr><td class="td-rank">${i+1}</td><td class="td-name">${m.name}</td>
+      return`<tr>
+        <td class="td-rank">${i+1}</td>
+        <td class="td-name">${m.name}</td>
         <td><span style="white-space:nowrap">${li}${m.league}</span></td>
         <td class="td-num"><span class="th-badge ${m.townHallLevel>=18?'th18':''}">${m.townHallLevel||'?'}</span></td>
         <td class="td-num">${(m.trophies||0).toLocaleString()}</td>
         <td><span class="role-badge ${rc}">${ROLE_MAP[m.role]||m.role}</span></td>
-        <td class="td-num">${wr}</td>
-        <td class="td-num">${cwlCell(m.cwl0)}</td>
-        <td class="td-num">${cwlCell(m.cwl1)}</td>
-        <td class="td-num">${cwlCell(m.cwl2)}</td>
-        </tr>`;
+        <td class="td-num">${pct(m.cwl0)}</td>
+        <td class="td-num">${pct(m.cwl1)}</td>
+        <td class="td-num">${pct(m.war0)}</td>
+        <td class="td-num">${pct(m.war1)}</td>
+      </tr>`;
     }).join('');
   }
+
   window.sortDetail=function(col){if(_sc===col)_sd*=-1;else{_sc=col;_sd=-1;}renderDetailTable();};
+
   content.innerHTML=`
     <div class="clan-detail-header">
       ${badge}
