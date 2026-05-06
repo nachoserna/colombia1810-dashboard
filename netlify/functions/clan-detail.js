@@ -20,38 +20,38 @@ exports.handler = async (event) => {
   snapshots.forEach(s => { snapMap[s.tag] = s; });
 
   const now = new Date();
-
-  // Build last 2 month labels
   const months = [];
   for (let i = 0; i < 2; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
   }
 
-  // Regular wars filtered by warMonth
+  // Get member tags from this clan
+  const memberTags = (clan.memberList || []).map(m => m.tag);
+
+  // Wars — search across ALL clans, filter by warMonth, then find attacks by member tags
   const wars0 = await db.collection('clan_wars')
-    .find({ clanTag, state: 'warEnded', warType: 'regular', warMonth: months[0] })
+    .find({ state: 'warEnded', warType: 'regular', warMonth: months[0] })
     .toArray();
-
   const wars1 = await db.collection('clan_wars')
-    .find({ clanTag, state: 'warEnded', warType: 'regular', warMonth: months[1] })
+    .find({ state: 'warEnded', warType: 'regular', warMonth: months[1] })
     .toArray();
 
-  // CWL wars — use actual seasons from data
+  // CWL — all clans, last 2 seasons
   const allCwlWars = await db.collection('cwl_wars')
-    .find({ clanTag, state: 'warEnded' }).toArray();
-
+    .find({ state: 'warEnded' }).toArray();
   const allSeasons = [...new Set(allCwlWars.map(w => w.season).filter(Boolean))].sort().reverse();
   const cwl0Season = allSeasons[0] || months[0];
   const cwl1Season = allSeasons[1] || months[1];
-
   const cwlWars0 = allCwlWars.filter(w => w.season === cwl0Season);
   const cwlWars1 = allCwlWars.filter(w => w.season === cwl1Season);
 
-  function aggregatePerf(wars) {
+  // Aggregate by player tag (not clanTag)
+  function aggregatePerf(wars, targetTags) {
     const perf = {};
     for (const war of wars) {
       for (const m of war.clan?.members || []) {
+        if (!targetTags.includes(m.tag)) continue;
         if (!perf[m.tag]) perf[m.tag] = { attacks: 0, threeStars: 0 };
         for (const atk of m.attacks || []) {
           perf[m.tag].attacks++;
@@ -62,10 +62,10 @@ exports.handler = async (event) => {
     return perf;
   }
 
-  const warPerf0 = aggregatePerf(wars0);
-  const warPerf1 = aggregatePerf(wars1);
-  const cwlPerf0 = aggregatePerf(cwlWars0);
-  const cwlPerf1 = aggregatePerf(cwlWars1);
+  const warPerf0  = aggregatePerf(wars0,     memberTags);
+  const warPerf1  = aggregatePerf(wars1,     memberTags);
+  const cwlPerf0  = aggregatePerf(cwlWars0,  memberTags);
+  const cwlPerf1  = aggregatePerf(cwlWars1,  memberTags);
 
   function stats(perf) {
     if (!perf || perf.attacks === 0) return null;
