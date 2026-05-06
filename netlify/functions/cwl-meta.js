@@ -6,14 +6,16 @@ exports.handler = async (event) => {
   const db = await getDb();
   const path = event.path.replace('/.netlify/functions/', '').replace('/api/', '');
 
-  if (path === 'cwl-seasons') {
+  const type = event.queryStringParameters?.type;
+
+  if (type === 'seasons') {
     const seasons = await db.collection('cwl_wars').distinct('season', { season: { $ne: null } });
-    return ok(seasons.sort().reverse());
+    return ok(seasons.filter(Boolean).sort().reverse());
   }
 
-  if (path === 'cwl-leagues') {
+  if (type === 'leagues') {
     const leagues = await db.collection('cwl_wars').distinct('clanLeague', { clanLeague: { $ne: null } });
-    return ok(leagues.sort());
+    return ok(leagues.filter(Boolean).sort());
   }
 
   return ok([]);

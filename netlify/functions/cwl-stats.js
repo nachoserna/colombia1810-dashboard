@@ -15,8 +15,8 @@ exports.handler = async (event) => {
     match.clanTag = { $in: clanList };
   }
 
-  // Desde filter (start of month)
-  if (desde) match.startTime = { $gte: new Date(desde) };
+  // Desde filter — compare season strings (YYYY-MM format sorts correctly)
+  if (desde) match.season = { $gte: desde };
 
   // League filter
   if (league) match.clanLeague = league;
