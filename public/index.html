@@ -351,10 +351,11 @@ async function loadClanDetail(tag){
     return `<th${num?' class="th-num"':''} style="cursor:pointer;${st}" onclick="sortDetail('${col}')">${l}${ar}</th>`;
   }
 
-  function pct(v){
-    if(v===null||v===undefined)return '<span style="color:var(--muted)">—</span>';
-    return `<span class="${rateClass(v)}">${v}%</span>`;
+  function statCell(s){
+    if(!s)return '<span style="color:var(--muted)">—</span>';
+    return `<span class="${rateClass(s.rate)}">${s.stars}/${s.attacks} (${s.rate}%)</span>`;
   }
+  function statVal(s){ return s ? s.rate : -1; }
 
   function renderDetailTable(){
     const sorted=[..._dm].sort((a,b)=>{
@@ -362,10 +363,10 @@ async function loadClanDetail(tag){
       if(_sc==='league'){va=LEAGUE_ORDER[a.league]??a.leagueId??0;vb=LEAGUE_ORDER[b.league]??b.leagueId??0;}
       else if(_sc==='trophies'){va=a.trophies||0;vb=b.trophies||0;}
       else if(_sc==='th'){va=a.townHallLevel||0;vb=b.townHallLevel||0;}
-      else if(_sc==='war0'){va=a.war0??-1;vb=b.war0??-1;}
-      else if(_sc==='war1'){va=a.war1??-1;vb=b.war1??-1;}
-      else if(_sc==='cwl0'){va=a.cwl0??-1;vb=b.cwl0??-1;}
-      else if(_sc==='cwl1'){va=a.cwl1??-1;vb=b.cwl1??-1;}
+      else if(_sc==='war0'){va=statVal(a.war0);vb=statVal(b.war0);}
+      else if(_sc==='war1'){va=statVal(a.war1);vb=statVal(b.war1);}
+      else if(_sc==='cwl0'){va=statVal(a.cwl0);vb=statVal(b.cwl0);}
+      else if(_sc==='cwl1'){va=statVal(a.cwl1);vb=statVal(b.cwl1);}
       else if(_sc==='name'){va=a.name.toLowerCase();vb=b.name.toLowerCase();return _sd*(va<vb?-1:va>vb?1:0);}
       return _sd*(vb-va);
     });
@@ -381,10 +382,10 @@ async function loadClanDetail(tag){
         <td class="td-num"><span class="th-badge ${m.townHallLevel>=18?'th18':''}">${m.townHallLevel||'?'}</span></td>
         <td class="td-num">${(m.trophies||0).toLocaleString()}</td>
         <td><span class="role-badge ${rc}">${ROLE_MAP[m.role]||m.role}</span></td>
-        <td class="td-num">${pct(m.cwl0)}</td>
-        <td class="td-num">${pct(m.cwl1)}</td>
-        <td class="td-num">${pct(m.war0)}</td>
-        <td class="td-num">${pct(m.war1)}</td>
+        <td class="td-num">${statCell(m.cwl0)}</td>
+        <td class="td-num">${statCell(m.cwl1)}</td>
+        <td class="td-num">${statCell(m.war0)}</td>
+        <td class="td-num">${statCell(m.war1)}</td>
       </tr>`;
     }).join('');
   }
