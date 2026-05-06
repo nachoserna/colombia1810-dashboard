@@ -356,7 +356,7 @@ async function loadClanDetail(tag){
       return _sd*(vb-va);
     });
     document.getElementById('detail-table-head').innerHTML=
-      `<tr>${_th('#','#',false)}${_th('Jugador','name',false)}${_th('Liga','league',false)}${_th('TH','th',true)}${_th('Trofeos','trophies',true)}<th>Rol</th>${_th('% 3⭐ Guerra','war',true)}${_th('% 3⭐ CWL','cwl',true)}${_th('Don.','don',true)}</tr>`;
+      `<tr>${_th('#','#',false)}${_th('Jugador','name',false)}${_th('Liga','league',false)}${_th('TH','th',true)}${_th('Trofeos','trophies',true)}<th>Rol</th>${_th('% 3⭐ Guerra','war',true)}${_th('% 3⭐ CWL','cwl',true)}</tr>`;
     document.getElementById('detail-table-body').innerHTML=sorted.map((m,i)=>{
       const li=m.leagueIconUrl?`<img class="league-icon" src="${m.leagueIconUrl}" alt="">`:'';
       const wr=m.warThreeStarRate!==null?`<span class="${rateClass(m.warThreeStarRate)}">${m.warThreeStarRate}%</span>`:'<span style="color:var(--muted)">—</span>';
@@ -368,7 +368,7 @@ async function loadClanDetail(tag){
         <td class="td-num">${(m.trophies||0).toLocaleString()}</td>
         <td><span class="role-badge ${rc}">${ROLE_MAP[m.role]||m.role}</span></td>
         <td class="td-num">${wr}</td><td class="td-num">${cr}</td>
-        <td class="td-num">${m.donations||0}</td></tr>`;
+        </tr>`;
     }).join('');
   }
   window.sortDetail=function(col){if(_sc===col)_sd*=-1;else{_sc=col;_sd=-1;}renderDetailTable();};
