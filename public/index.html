@@ -332,7 +332,8 @@ async function loadClanDetail(tag){
   const cleanTag=tag.replace('#','%23');
   const data=await api('clan-detail?tag='+cleanTag);
   if(!data)return;
-  const {clan,members,seasons}=data;
+  const {clan,members,seasons,warLabels}=data;
+  const wl=warLabels||['',''];
   const badge=clan.badgeUrls?.medium
     ?`<img class="clan-detail-badge" src="${clan.badgeUrls.medium}" alt="${clan.name}">`
     :`<div style="width:64px;height:64px;background:var(--accent-light);display:flex;align-items:center;justify-content:center;font-size:32px;">⚔️</div>`;
@@ -369,7 +370,7 @@ async function loadClanDetail(tag){
       return _sd*(vb-va);
     });
     document.getElementById('detail-table-head').innerHTML=
-      `<tr>${_th('#','#',false)}${_th('Jugador','name',false)}${_th('Liga','league',false)}${_th('TH','th',true)}${_th('Trofeos','trophies',true)}<th>Rol</th>${_th('CWL '+fmtS(s0),'cwl0',true)}${_th('CWL '+fmtS(s1),'cwl1',true)}${_th('Guerra actual','war0',true)}${_th('Guerra anterior','war1',true)}</tr>`;
+      `<tr>${_th('#','#',false)}${_th('Jugador','name',false)}${_th('Liga','league',false)}${_th('TH','th',true)}${_th('Trofeos','trophies',true)}<th>Rol</th>${_th('CWL '+fmtS(s0),'cwl0',true)}${_th('CWL '+fmtS(s1),'cwl1',true)}${_th('Guerra '+fmtS(wl[0]),'war0',true)}${_th('Guerra '+fmtS(wl[1]),'war1',true)}</tr>`;
     document.getElementById('detail-table-body').innerHTML=sorted.map((m,i)=>{
       const li=m.leagueIconUrl?`<img class="league-icon" src="${m.leagueIconUrl}" alt="">`:'';
       const rc=m.role==='leader'?'role-leader':m.role==='coLeader'?'role-coLeader':m.role==='admin'?'role-admin':'role-member';

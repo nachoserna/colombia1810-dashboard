@@ -19,7 +19,7 @@ exports.handler = async (event) => {
   const snapMap = {};
   snapshots.forEach(s => { snapMap[s.tag] = s; });
 
-  // Last 2 CWL seasons
+  // Current and previous CWL seasons (YYYY-MM)
   const now = new Date();
   const cwlSeasons = [];
   for (let i = 0; i < 2; i++) {
@@ -27,24 +27,26 @@ exports.handler = async (event) => {
     cwlSeasons.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
   }
 
-  // Last 2 war months
-  const warMonths = [];
+  // War month labels for display
+  const warLabels = [];
   for (let i = 0; i < 2; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    warMonths.push(d);
+    warLabels.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
   }
 
-  // Wars — current month
-  const wars0 = await db.collection('clan_wars')
-    .find({ clanTag, state: 'warEnded', warType: 'regular',
-      startTime: { $gte: warMonths[0], $lt: new Date(now.getFullYear(), now.getMonth() + 1, 1) }
-    }).toArray();
+  // Get last 60 regular wars sorted by updatedAt desc
+  const allWars = await db.collection('clan_wars')
+    .find({ clanTag, state: 'warEnded', warType: 'regular' })
+    .sort({ updatedAt: -1 })
+    .limit(60)
+    .toArray();
 
-  // Wars — previous month
-  const wars1 = await db.collection('clan_wars')
-    .find({ clanTag, state: 'warEnded', warType: 'regular',
-      startTime: { $gte: warMonths[1], $lt: warMonths[0] }
-    }).toArray();
+  // Split into current month and previous month using updatedAt
+  const curMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+  const wars0 = allWars.filter(w => w.updatedAt >= curMonthStart);
+  const wars1 = allWars.filter(w => w.updatedAt >= prevMonthStart && w.updatedAt < curMonthStart);
 
   // CWL wars — last 2 seasons
   const cwlWars = await db.collection('cwl_wars')
@@ -127,6 +129,6 @@ exports.handler = async (event) => {
     },
     members,
     seasons: cwlSeasons,
-    warMonths: warMonths.map(d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`),
+    warLabels,
   });
 };
