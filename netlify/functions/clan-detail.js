@@ -21,13 +21,6 @@ exports.handler = async (event) => {
 
   const now = new Date();
 
-  // CWL seasons — current and previous 2 (YYYY-MM)
-  const cwlSeasons = [];
-  for (let i = 0; i < 2; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    cwlSeasons.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
-  }
-
   // War month labels
   const warLabels = [];
   for (let i = 0; i < 2; i++) {
@@ -35,36 +28,46 @@ exports.handler = async (event) => {
     warLabels.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
   }
 
-  // Get recent wars sorted by updatedAt
+  // Extract date from warId: format is "TAG_YYYYMMDDTHHmmss.000Z"
+  function warIdToDate(warId) {
+    if (!warId) return null;
+    const match = warId.match(/_(\d{8})T/);
+    if (!match) return null;
+    const s = match[1];
+    return new Date(`${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}T00:00:00Z`);
+  }
+
+  // Get all recent wars
   const allWars = await db.collection('clan_wars')
     .find({ clanTag, state: 'warEnded', warType: 'regular' })
-    .sort({ updatedAt: -1 })
-    .limit(60)
     .toArray();
 
   const curMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
-  const wars0 = allWars.filter(w => w.updatedAt && w.updatedAt >= curMonthStart);
-  const wars1 = allWars.filter(w => w.updatedAt && w.updatedAt >= prevMonthStart && w.updatedAt < curMonthStart);
+  // Filter by date extracted from warId
+  const wars0 = allWars.filter(w => {
+    const d = warIdToDate(w.warId);
+    return d && d >= curMonthStart;
+  });
+  const wars1 = allWars.filter(w => {
+    const d = warIdToDate(w.warId);
+    return d && d >= prevMonthStart && d < curMonthStart;
+  });
 
-  // Get all CWL wars for this clan and find what seasons exist
+  // CWL — use actual seasons from data
   const allCwlWars = await db.collection('cwl_wars')
     .find({ clanTag, state: 'warEnded' })
-    .sort({ updatedAt: -1 })
     .toArray();
 
-  // Get distinct seasons from actual data
   const allSeasons = [...new Set(allCwlWars.map(w => w.season).filter(Boolean))].sort().reverse();
-  
-  // Use actual seasons from data for cwl0 and cwl1
-  const actualCwl0Season = allSeasons[0] || cwlSeasons[0];
-  const actualCwl1Season = allSeasons[1] || cwlSeasons[1];
+  const cwl0Season = allSeasons[0] || warLabels[0];
+  const cwl1Season = allSeasons[1] || warLabels[1];
 
-  const cwlWars0 = allCwlWars.filter(w => w.season === actualCwl0Season);
-  const cwlWars1 = allCwlWars.filter(w => w.season === actualCwl1Season);
+  const cwlWars0 = allCwlWars.filter(w => w.season === cwl0Season);
+  const cwlWars1 = allCwlWars.filter(w => w.season === cwl1Season);
 
-  function aggregateWarPerf(wars) {
+  function aggregatePerf(wars) {
     const perf = {};
     for (const war of wars) {
       for (const m of war.clan?.members || []) {
@@ -78,12 +81,11 @@ exports.handler = async (event) => {
     return perf;
   }
 
-  const warPerf0 = aggregateWarPerf(wars0);
-  const warPerf1 = aggregateWarPerf(wars1);
-  const cwlPerf0 = aggregateWarPerf(cwlWars0);
-  const cwlPerf1 = aggregateWarPerf(cwlWars1);
+  const warPerf0 = aggregatePerf(wars0);
+  const warPerf1 = aggregatePerf(wars1);
+  const cwlPerf0 = aggregatePerf(cwlWars0);
+  const cwlPerf1 = aggregatePerf(cwlWars1);
 
-  // Returns {stars, attacks, rate} or null
   function stats(perf) {
     if (!perf || perf.attacks === 0) return null;
     return {
@@ -128,13 +130,9 @@ exports.handler = async (event) => {
   });
 
   return ok({
-    clan: {
-      tag: clan.tag, name: clan.name, level: clan.level,
-      badgeUrls: clan.badgeUrls, warLeague: clan.warLeague,
-      members: clan.members,
-    },
+    clan: { tag: clan.tag, name: clan.name, level: clan.level, badgeUrls: clan.badgeUrls, warLeague: clan.warLeague, members: clan.members },
     members,
-    seasons: [actualCwl0Season, actualCwl1Season],
+    seasons: [cwl0Season, cwl1Season],
     warLabels,
   });
 };
