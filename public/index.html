@@ -24,6 +24,9 @@
   .preview-nav span { color:#555; font-size:11px; font-family:monospace; margin-right:6px; }
   .pnav-btn { padding:4px 14px; font-size:11px; cursor:pointer; border:1px solid #333; background:none; color:#888; font-family:monospace; transition:all 0.15s; border-radius:2px; }
   .pnav-btn.active, .pnav-btn:hover { background:var(--accent); color:white; border-color:var(--accent); }
+
+  .view { display:none; }
+  .view.active { display:block; }
   .screen { display:none; }
   .screen.active { display:block; }
 
@@ -157,14 +160,14 @@
 </svg>
 
 <!-- LOGIN -->
-<div class="screen active" id="s-login">
+<div id="s-login" style="display:flex;min-height:100vh;align-items:center;justify-content:center;background:var(--bg);padding:24px;">
   <div class="login-wrap">
     <div class="login-box">
       <svg class="login-shield" viewBox="0 0 60 70"><use href="#shield"/></svg>
       <div class="login-title">Colombia 1810</div>
       <div class="login-subtitle">Panel de análisis · Clan tracker</div>
-      <div class="form-group"><label>Usuario</label><input type="text" value="nachoserna"/></div>
-      <div class="form-group"><label>Contraseña</label><input type="password" value="••••••••"/></div>
+      <div class="form-group"><label>Usuario</label><input type="text" id="username" autocomplete="username" placeholder="usuario"/></div>
+      <div class="form-group"><label>Contraseña</label><input type="password" id="password" autocomplete="current-password" placeholder="contraseña"/></div>
       <button class="btn-login" onclick="login()">Entrar</button>
       <div id="login-error" style="display:none;color:var(--danger);font-size:13px;margin-top:10px;font-family:var(--mono);">Usuario o contraseña incorrectos</div>
     </div>
@@ -172,12 +175,13 @@
 </div>
 
 <!-- FAMILIA -->
-<div class="screen" id="s-familia">
+<div id="app-shell" style="display:none;min-height:100vh;">
+<div class="view" id="view-familia">
   <div class="topbar">
     <div class="topbar-brand"><svg width="20" height="24" viewBox="0 0 60 70"><use href="#shield"/></svg>Colombia 1810</div>
     <div class="topbar-nav">
-      <button class="nav-tab active">Familia</button><button class="nav-tab">CWL</button>
-      <button class="nav-tab">Guerras</button><button class="nav-tab">Jugadores</button><button class="nav-tab">Rotación</button>
+      <button class="nav-tab active" onclick="showView('familia',this)">Familia</button><button class="nav-tab" onclick="showView('cwl',this)">CWL</button>
+      <button class="nav-tab" onclick="showView('guerras',this)">Guerras</button><button class="nav-tab" onclick="showView('jugadores',this)">Jugadores</button><button class="nav-tab" onclick="showView('rotacion',this)">Rotación</button>
     </div>
     <div class="topbar-user"><span id="username-display">—</span><button class="btn-logout">Salir</button></div>
   </div>
@@ -197,10 +201,10 @@
 </div>
 
 <!-- CWL -->
-<div class="screen" id="s-cwl">
+<div class="view" id="view-cwl">
   <div class="topbar">
     <div class="topbar-brand"><svg width="20" height="24" viewBox="0 0 60 70"><use href="#shield"/></svg>Colombia 1810</div>
-    <div class="topbar-nav"><button class="nav-tab">Familia</button><button class="nav-tab active">CWL</button><button class="nav-tab">Guerras</button><button class="nav-tab">Jugadores</button><button class="nav-tab">Rotación</button></div>
+    <div class="topbar-nav"><button class="nav-tab" onclick="showView('familia',this)">Familia</button><button class="nav-tab active" onclick="showView('cwl',this)">CWL</button><button class="nav-tab" onclick="showView('guerras',this)">Guerras</button><button class="nav-tab" onclick="showView('jugadores',this)">Jugadores</button><button class="nav-tab" onclick="showView('rotacion',this)">Rotación</button></div>
     <div class="topbar-user"><span>nachoserna</span><button class="btn-logout">Salir</button></div>
   </div>
   <div class="main">
@@ -260,10 +264,10 @@
 </div>
 
 <!-- GUERRAS -->
-<div class="screen" id="s-guerras">
+<div class="view" id="view-guerras">
   <div class="topbar">
     <div class="topbar-brand"><svg width="20" height="24" viewBox="0 0 60 70"><use href="#shield"/></svg>Colombia 1810</div>
-    <div class="topbar-nav"><button class="nav-tab">Familia</button><button class="nav-tab">CWL</button><button class="nav-tab active">Guerras</button><button class="nav-tab">Jugadores</button><button class="nav-tab">Rotación</button></div>
+    <div class="topbar-nav"><button class="nav-tab" onclick="showView('familia',this)">Familia</button><button class="nav-tab" onclick="showView('cwl',this)">CWL</button><button class="nav-tab active" onclick="showView('guerras',this)">Guerras</button><button class="nav-tab" onclick="showView('jugadores',this)">Jugadores</button><button class="nav-tab" onclick="showView('rotacion',this)">Rotación</button></div>
     <div class="topbar-user"><span>nachoserna</span><button class="btn-logout">Salir</button></div>
   </div>
   <div class="main">
@@ -324,10 +328,10 @@
 </div>
 
 <!-- JUGADORES -->
-<div class="screen" id="s-jugadores">
+<div class="view" id="view-jugadores">
   <div class="topbar">
     <div class="topbar-brand"><svg width="20" height="24" viewBox="0 0 60 70"><use href="#shield"/></svg>Colombia 1810</div>
-    <div class="topbar-nav"><button class="nav-tab">Familia</button><button class="nav-tab">CWL</button><button class="nav-tab">Guerras</button><button class="nav-tab active">Jugadores</button><button class="nav-tab">Rotación</button></div>
+    <div class="topbar-nav"><button class="nav-tab" onclick="showView('familia',this)">Familia</button><button class="nav-tab" onclick="showView('cwl',this)">CWL</button><button class="nav-tab" onclick="showView('guerras',this)">Guerras</button><button class="nav-tab active" onclick="showView('jugadores',this)">Jugadores</button><button class="nav-tab" onclick="showView('rotacion',this)">Rotación</button></div>
     <div class="topbar-user"><span>nachoserna</span><button class="btn-logout">Salir</button></div>
   </div>
   <div class="main">
@@ -353,10 +357,10 @@
 </div>
 
 <!-- ROTACION -->
-<div class="screen" id="s-rotacion">
+<div class="view" id="view-rotacion">
   <div class="topbar">
     <div class="topbar-brand"><svg width="20" height="24" viewBox="0 0 60 70"><use href="#shield"/></svg>Colombia 1810</div>
-    <div class="topbar-nav"><button class="nav-tab">Familia</button><button class="nav-tab">CWL</button><button class="nav-tab">Guerras</button><button class="nav-tab">Jugadores</button><button class="nav-tab active">Rotación</button></div>
+    <div class="topbar-nav"><button class="nav-tab" onclick="showView('familia',this)">Familia</button><button class="nav-tab" onclick="showView('cwl',this)">CWL</button><button class="nav-tab" onclick="showView('guerras',this)">Guerras</button><button class="nav-tab" onclick="showView('jugadores',this)">Jugadores</button><button class="nav-tab active" onclick="showView('rotacion',this)">Rotación</button></div>
     <div class="topbar-user"><span>nachoserna</span><button class="btn-logout">Salir</button></div>
   </div>
   <div class="main">
@@ -708,5 +712,6 @@ if (token) {
     .catch(() => {});
 }
 </script>
+</div>
 </body>
 </html>
