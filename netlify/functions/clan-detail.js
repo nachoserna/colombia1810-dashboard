@@ -31,19 +31,12 @@ exports.handler = async (event) => {
   // Extract numeric war ID from warTag like "historical_#90CLYR88_5509180" -> "5509180"
   // or from warId like "#90CLYR88_5460277" -> "5460277"
   function getWarKey(war) {
-    // Deduplicate by (clanTag + startTime rounded to day)
-    // This handles both historical (warTag: #CLAN_WARID) and collector (warTag: #8G2C28GCJ) formats
-    const ct = war.clanTag || '';
-    const st = war.startTime;
-    if (st && new Date(st).getFullYear() > 2020) {
-      const d = new Date(st);
-      // Round to day to handle slight time differences
-      return `${ct}_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
-    }
-    // Fallback: extract numeric ID from warTag
+    // Both historical migrator and collector now store a 'warKey' field
+    if (war.warKey) return war.warKey;
+    // Fallback for old documents
     const src = war.warTag || war.warId || '';
     const m = src.match(/_(\d+)$/);
-    if (m) return `${ct}_${m[1]}`;
+    if (m) return `${war.clanTag || ''}_${m[1]}`;
     return war._id.toString();
   }
 
