@@ -33,14 +33,14 @@ exports.handler = async (event) => {
   function getNumericId(war) {
     const wt = war.warTag || '';
     const wi = war.warId || '';
-    // historical format: "historical_#CLAN_12345"
-    const m1 = wt.match(/historical_[^_]+_(\d+)$/);
+    // Extract trailing digits: "#90CLYR88_5473302" -> "5473302"
+    const src = wt || wi;
+    const m1 = src.match(/_(\d+)$/);
     if (m1) return m1[1];
-    // new collector format: "#CLAN_20260506T..."
-    const m2 = wi.match(/_(\d{8}T\d+)/);
-    if (m2) return wi; // use full warId as key
-    // fallback: use warTag or _id
-    return wt || war._id.toString();
+    // New collector format with timestamp: use date portion as key
+    const m2 = (wt || wi).match(/_(\d{8}T[\d.]+)/);
+    if (m2) return m2[1];
+    return src || war._id.toString();
   }
 
   // Aggregate by player, deduplicating by numeric war ID
