@@ -30,6 +30,13 @@ function normalizeClan(c) {
   };
 }
 
+// Los IDs de leagueTier van de 105000001 (Bronze I) hasta 105000036 (Legend)
+// Unranked tiene id 29000000 — lo tratamos como 0 para que vaya al final
+function leagueSortKey(leagueId) {
+  if (!leagueId || leagueId === 29000000) return 0;
+  return leagueId; // 105000036 = Legend (mayor), 105000001 = Bronze I (menor)
+}
+
 exports.handler = async (event) => {
   if (!verifyToken(event)) return unauthorized();
 
@@ -99,9 +106,11 @@ exports.handler = async (event) => {
     };
   });
 
-  // Ordenar por liga (id desc) luego trofeos (desc)
+  // Ordenar: Legend primero, luego por liga desc, Unranked al final, trofeos desc dentro de cada liga
   members.sort((a, b) => {
-    if (b.leagueId !== a.leagueId) return b.leagueId - a.leagueId;
+    const ka = leagueSortKey(a.leagueId);
+    const kb = leagueSortKey(b.leagueId);
+    if (kb !== ka) return kb - ka;
     return (b.trophies || 0) - (a.trophies || 0);
   });
 
