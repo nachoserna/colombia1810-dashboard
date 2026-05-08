@@ -459,10 +459,10 @@ async function loadClanDetail(tag){
   const s0=seasons?.[0]||'', s1=seasons?.[1]||'', s2=seasons?.[2]||'';
   function fmtS(s){if(!s)return'—';const[y,m]=s.split('-');const M=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];return M[parseInt(m)-1]+' '+y.slice(2);}
 
-  let _dm=members, _sc='league', _sd=-1;
+  let _dm=members, _sc='league', _sd=1;
 
   function _th(l,col,num){
-    const a=_sc===col, ar=a?(_sd===-1?' ↓':' ↑'):'', st=a?'color:var(--accent)':'';
+    const a=_sc===col, ar=a?(_sd===1?' ↓':' ↑'):'', st=a?'color:var(--accent)':'';
     return `<th${num?' class="th-num"':''} style="cursor:pointer;${st}" onclick="sortDetail('${col}')">${l}${ar}</th>`;
   }
 
