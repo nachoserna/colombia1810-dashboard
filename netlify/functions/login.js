@@ -9,11 +9,7 @@ exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return err('Method not allowed', 405);
 
   let body;
-  try {
-    body = JSON.parse(event.body);
-  } catch {
-    return err('Invalid JSON');
-  }
+  try { body = JSON.parse(event.body); } catch { return err('Invalid JSON'); }
 
   const { username, password } = body;
   if (!username || !password) return err('Username and password required');

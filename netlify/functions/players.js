@@ -9,7 +9,6 @@ exports.handler = async (event) => {
 
   const db = await getDb();
 
-  // Obtener miembros activos (para saber en qué clan está cada uno)
   const filtroMiembros = clanTagFiltro ? { clanTag: clanTagFiltro } : {};
   const miembros = await db.collection('miembros').find(filtroMiembros).toArray();
 
@@ -18,21 +17,34 @@ exports.handler = async (event) => {
   const tags = miembros.map(m => m._id);
   const miembrosMap = Object.fromEntries(miembros.map(m => [m._id, m]));
 
-  // Obtener info rica de jugadores
   const jugadores = await db.collection('jugadores').find({
     _id: { $in: tags }
   }).toArray();
 
-  // Combinar info de miembros (rol, clanRank) con info rica de jugadores
-  const result = jugadores.map(j => ({
-    ...j,
-    rol: miembrosMap[j._id]?.role || null,
-    clanRank: miembrosMap[j._id]?.clanRank || null,
-    clanTag: miembrosMap[j._id]?.clanTag || null,
-    clanNombre: miembrosMap[j._id]?.clanNombre || null
-  }));
+  const result = jugadores.map(j => {
+    const miembro = miembrosMap[j._id];
 
-  // Ordenar por trofeos desc
+    // heroes es array: [{ name, level, maxLevel, village }]
+    // Convertir a objeto { 'Barbarian King': 105, ... } para compatibilidad con el frontend
+    const heroesObj = {};
+    if (Array.isArray(j.heroes)) {
+      for (const h of j.heroes) {
+        if (h.village === 'home') heroesObj[h.name] = h.level;
+      }
+    }
+
+    return {
+      ...j,
+      tag: j._id,
+      heroes: heroesObj,
+      league: j.leagueTier?.nombre || j.leagueTier?.name || 'Sin liga',
+      rol: miembro?.role || null,
+      clanRank: miembro?.clanRank || null,
+      clanTag: miembro?.clanTag || null,
+      clanNombre: miembro?.clanNombre || null
+    };
+  });
+
   result.sort((a, b) => (b.trophies || 0) - (a.trophies || 0));
 
   return ok(result);

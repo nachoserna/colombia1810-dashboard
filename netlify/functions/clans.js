@@ -6,22 +6,18 @@ exports.handler = async (event) => {
 
   const db = await getDb();
 
-  const [clanes, miembros] = await Promise.all([
-    db.collection('clanes').find({}).toArray(),
-    db.collection('miembros').find({}).toArray()
-  ]);
+  const clanes = await db.collection('clanes').find({}).toArray();
 
-  // Agrupar miembros por clan
-  const miembrosPorClan = {};
-  for (const m of miembros) {
-    if (!miembrosPorClan[m.clanTag]) miembrosPorClan[m.clanTag] = 0;
-    miembrosPorClan[m.clanTag]++;
-  }
-
-  // Enriquecer clanes con conteo de miembros actuales
-  const result = clanes.map(clan => ({
-    ...clan,
-    miembrosActuales: miembrosPorClan[clan._id] || 0
+  // Normalizar para el frontend: tag = _id, level = clanLevel, warLeague = nombre
+  const result = clanes.map(c => ({
+    ...c,
+    tag: c._id,
+    name: c.name,
+    level: c.clanLevel,
+    members: c.members,
+    warLeague: c.warLeague?.name || 'Unranked',
+    warLeagueIconUrl: c.warLeague?.iconUrls?.small || null,
+    badgeUrls: c.badgeUrls
   }));
 
   return ok(result);

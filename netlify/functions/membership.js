@@ -6,7 +6,7 @@ exports.handler = async (event) => {
 
   const params = event.queryStringParameters || {};
   const clanTagFiltro = params.clan;
-  const tipo = params.tipo; // 'ingreso' | 'salida' | undefined (todos)
+  const tipo = params.tipo; // 'ingreso' | 'salida' | undefined
   const limit = parseInt(params.limit) || 100;
 
   const db = await getDb();
@@ -21,5 +21,14 @@ exports.handler = async (event) => {
     .limit(limit)
     .toArray();
 
-  return ok(registros);
+  // Normalizar para el frontend — usa e.event, e.name, e.timestamp, e.clanName
+  const result = registros.map(r => ({
+    ...r,
+    event: r.tipo === 'ingreso' ? 'joined' : 'left',
+    name: r.jugadorNombre,
+    timestamp: r.fecha,
+    clanName: r.clanNombre
+  }));
+
+  return ok(result);
 };

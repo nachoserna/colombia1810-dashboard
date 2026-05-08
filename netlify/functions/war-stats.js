@@ -10,27 +10,35 @@ exports.handler = async (event) => {
   if (!verifyToken(event)) return unauthorized();
 
   const params = event.queryStringParameters || {};
-  const warMonth = params.month;
-  const clanTagFiltro = params.clan;
-
-  if (!warMonth) return err('month requerido (YYYY-MM)');
+  const desde = params.desde; // formato YYYY-MM-DD
+  const clansFiltro = params.clans ? params.clans.split(',') : CLAN_TAGS;
 
   const db = await getDb();
 
-  const clanTagsFiltro = clanTagFiltro ? [clanTagFiltro] : CLAN_TAGS;
+  // Convertir desde (YYYY-MM-DD) a warMonth (YYYY-MM) si existe
+  const filtroWarMonth = desde ? { warMonth: { $gte: desde.substring(0, 7) } } : {};
 
   const guerras = await db.collection('guerras').find({
-    warMonth,
-    clanTag: { $in: clanTagsFiltro }
+    ...filtroWarMonth,
+    clanTag: { $in: clansFiltro },
+    state: 'warEnded'
   }).toArray();
 
-  if (guerras.length === 0) return ok([]);
+  const totalWars = guerras.length;
+
+  if (totalWars === 0) return ok({ players: [], totalWars: 0 });
 
   // Miembros actuales
   const miembros = await db.collection('miembros').find({
-    clanTag: { $in: clanTagsFiltro }
+    clanTag: { $in: clansFiltro }
   }).toArray();
   const miembrosMap = Object.fromEntries(miembros.map(m => [m._id, m]));
+
+  // Clanes para nombres
+  const clanes = await db.collection('clanes').find({
+    _id: { $in: clansFiltro }
+  }).toArray();
+  const clanesMap = Object.fromEntries(clanes.map(c => [c._id, c.name]));
 
   // Acumular stats por jugador
   const statsMap = {};
@@ -40,40 +48,63 @@ exports.handler = async (event) => {
       if (!statsMap[m.tag]) {
         statsMap[m.tag] = {
           tag: m.tag,
-          nombre: m.name,
-          th: m.townHallLevel,
+          name: m.name,
+          townHallLevel: m.townHallLevel || 0,
           clanTag: guerra.clanTag,
-          ataques: 0,
-          estrellas: 0,
+          clanName: clanesMap[guerra.clanTag] || guerra.clanTag,
+          wars: 0,
+          attacks: 0,
+          stars: 0,
           destruccion: 0,
           tresEstrellas: 0,
-          noAtaco: 0
+          noAtaco: 0,
+          totalEsperados: 0
         };
       }
 
       const s = statsMap[m.tag];
+      s.wars++;
+      const esperados = guerra.attacksPerMember || 2;
+      s.totalEsperados += esperados;
+
       for (const ataque of (m.ataques || [])) {
-        s.ataques++;
-        s.estrellas += ataque.stars || 0;
+        s.attacks++;
+        s.stars += ataque.stars || 0;
         s.destruccion += ataque.destructionPercentage || 0;
         if (ataque.stars === 3) s.tresEstrellas++;
       }
-      if (!m.ataques || m.ataques.length === 0) s.noAtaco++;
+
+      if (!m.ataques || m.ataques.length === 0) s.noAtaco += esperados;
+      else if (m.ataques.length < esperados) s.noAtaco += esperados - m.ataques.length;
     }
   }
 
-  const result = Object.values(statsMap).map(s => {
+  const players = Object.values(statsMap).map(s => {
     const miembro = miembrosMap[s.tag];
+    const avgTrueStars = s.attacks > 0 ? (s.stars / s.attacks).toFixed(2) : '0.00';
+    const threeStarRate = s.attacks > 0 ? Math.round((s.tresEstrellas / s.attacks) * 100) : 0;
+    const avgDest = s.attacks > 0 ? Math.round(s.destruccion / s.attacks) : 0;
+    const missedRate = s.totalEsperados > 0 ? Math.round((s.noAtaco / s.totalEsperados) * 100) : 0;
+
     return {
-      ...s,
+      tag: s.tag,
+      name: s.name,
+      townHallLevel: miembro?.townHallLevel || s.townHallLevel,
+      clanName: s.clanName,
+      wars: s.wars,
+      attacks: s.attacks,
+      missed: s.noAtaco,
+      missedRate,
+      stars: s.stars,
+      avgTrueStars,
+      avgDest,
+      threeStarRate,
       leagueTier: miembro?.leagueTier || null,
-      trofeos: miembro?.trophies || null,
-      rate: s.ataques > 0 ? Math.round((s.tresEstrellas / s.ataques) * 100) : 0,
-      avgDestruccion: s.ataques > 0 ? Math.round(s.destruccion / s.ataques) : 0
+      trophies: miembro?.trophies || null
     };
   });
 
-  result.sort((a, b) => b.estrellas - a.estrellas || b.rate - a.rate);
+  players.sort((a, b) => b.stars - a.stars || b.threeStarRate - a.threeStarRate);
 
-  return ok(result);
+  return ok({ players, totalWars });
 };

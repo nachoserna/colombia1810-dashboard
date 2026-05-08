@@ -10,24 +10,24 @@ exports.handler = async (event) => {
   if (!verifyToken(event)) return unauthorized();
 
   const params = event.queryStringParameters || {};
-  const warMonth = params.month;
-  const clanTagFiltro = params.clan;
-
-  if (!warMonth) return err('month requerido (YYYY-MM)');
+  const desde = params.desde;
+  const clansFiltro = params.clans ? params.clans.split(',') : CLAN_TAGS;
 
   const db = await getDb();
 
-  const clanTagsFiltro = clanTagFiltro ? [clanTagFiltro] : CLAN_TAGS;
+  const filtroWarMonth = desde ? { warMonth: { $gte: desde.substring(0, 7) } } : {};
 
   const guerras = await db.collection('guerras').find({
-    warMonth,
-    clanTag: { $in: clanTagsFiltro },
+    ...filtroWarMonth,
+    clanTag: { $in: clansFiltro },
     state: 'warEnded'
   }).toArray();
 
-  if (guerras.length === 0) return ok([]);
+  const clanes = await db.collection('clanes').find({
+    _id: { $in: clansFiltro }
+  }).toArray();
+  const clanesMap = Object.fromEntries(clanes.map(c => [c._id, c.name]));
 
-  // Buscar jugadores que no atacaron
   const missed = [];
 
   for (const guerra of guerras) {
@@ -37,22 +37,19 @@ exports.handler = async (event) => {
 
       if (ataques.length < esperados) {
         missed.push({
-          jugadorTag: m.tag,
-          jugadorNombre: m.name,
-          clanTag: guerra.clanTag,
-          warId: guerra._id,
-          endTime: guerra.endTime,
-          warMonth: guerra.warMonth,
-          ataquesRealizados: ataques.length,
-          ataquesEsperados: esperados,
-          ataquesPerdidos: esperados - ataques.length
+          name: m.name,
+          tag: m.tag,
+          clanName: clanesMap[guerra.clanTag] || guerra.clanTag,
+          opponentName: guerra.oponente?.nombre || guerra.oponente?.tag || '?',
+          missed: esperados - ataques.length,
+          warDate: guerra.endTime,
+          teamSize: guerra.teamSize || 0
         });
       }
     }
   }
 
-  // Ordenar por fecha desc
-  missed.sort((a, b) => b.endTime?.localeCompare(a.endTime));
+  missed.sort((a, b) => (b.warDate || '').localeCompare(a.warDate || ''));
 
   return ok(missed);
 };
