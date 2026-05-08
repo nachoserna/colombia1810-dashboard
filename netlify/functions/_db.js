@@ -1,12 +1,15 @@
 const { MongoClient } = require('mongodb');
 
-let cachedClient = null;
+let client;
+let db;
 
 async function getDb() {
-  if (cachedClient) return cachedClient.db('colombia1810');
-  cachedClient = new MongoClient(process.env.MONGODB_URI);
-  await cachedClient.connect();
-  return cachedClient.db('colombia1810');
+  if (db) return db;
+
+  client = new MongoClient(process.env.MONGODB_URI);
+  await client.connect();
+  db = client.db('colombia1810');
+  return db;
 }
 
 module.exports = { getDb };

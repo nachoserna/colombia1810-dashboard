@@ -1,70 +1,79 @@
 const { getDb } = require('./_db');
-const { verifyToken, unauthorized, ok } = require('./_auth');
+const { verifyToken, unauthorized, ok, err } = require('./_auth');
+
+const CLAN_TAGS = [
+  '#90CLYR88', '#2JQYJ0PL9', '#2GGY8V0GR', '#2JCPQ8G0P',
+  '#2RRJRL882', '#2J290PRQ2', '#2JVJC9LVL'
+];
 
 exports.handler = async (event) => {
   if (!verifyToken(event)) return unauthorized();
 
-  const { clans, desde } = event.queryStringParameters || {};
+  const params = event.queryStringParameters || {};
+  const warMonth = params.month;
+  const clanTagFiltro = params.clan;
+
+  if (!warMonth) return err('month requerido (YYYY-MM)');
+
   const db = await getDb();
 
-  const match = { state: 'warEnded', warType: 'regular' };
+  const clanTagsFiltro = clanTagFiltro ? [clanTagFiltro] : CLAN_TAGS;
 
-  if (clans) {
-    const clanList = clans.split(',').map(c => c.trim());
-    match.clanTag = { $in: clanList };
-  }
+  const guerras = await db.collection('guerras').find({
+    warMonth,
+    clanTag: { $in: clanTagsFiltro }
+  }).toArray();
 
-  if (desde) match.startTime = { $gte: new Date(desde) };
+  if (guerras.length === 0) return ok([]);
 
-  const wars = await db.collection('clan_wars').find(match).sort({ startTime: -1 }).toArray();
+  // Miembros actuales
+  const miembros = await db.collection('miembros').find({
+    clanTag: { $in: clanTagsFiltro }
+  }).toArray();
+  const miembrosMap = Object.fromEntries(miembros.map(m => [m._id, m]));
 
-  const players = {};
-  for (const war of wars) {
-    const members = war.clan?.members || [];
-    const attacksPerMember = war.attacksPerMember || 2;
-    for (const m of members) {
-      const key = m.tag;
-      if (!players[key]) {
-        players[key] = {
-          tag: m.tag, name: m.name,
-          townHallLevel: m.townhallLevel,
-          clanTag: war.clanTag, clanName: war.clanName,
-          wars: 0, of: 0, attacks: 0,
-          stars: 0, trueStars: 0, dest: 0,
-          threeStars: 0, twoStars: 0, oneStars: 0, zeroStars: 0,
-          defStars: 0, defDest: 0, defCount: 0
+  // Acumular stats por jugador
+  const statsMap = {};
+
+  for (const guerra of guerras) {
+    for (const m of (guerra.miembros || [])) {
+      if (!statsMap[m.tag]) {
+        statsMap[m.tag] = {
+          tag: m.tag,
+          nombre: m.name,
+          th: m.townHallLevel,
+          clanTag: guerra.clanTag,
+          ataques: 0,
+          estrellas: 0,
+          destruccion: 0,
+          tresEstrellas: 0,
+          noAtaco: 0
         };
       }
-      const p = players[key];
-      p.wars += 1;
-      p.of += attacksPerMember;
-      for (const atk of m.attacks || []) {
-        p.attacks += 1;
-        p.stars += atk.stars;
-        p.trueStars += atk.trueStars ?? atk.stars;
-        p.dest += atk.destructionPercentage;
-        if (atk.stars === 3) p.threeStars++;
-        else if (atk.stars === 2) p.twoStars++;
-        else if (atk.stars === 1) p.oneStars++;
-        else p.zeroStars++;
+
+      const s = statsMap[m.tag];
+      for (const ataque of (m.ataques || [])) {
+        s.ataques++;
+        s.estrellas += ataque.stars || 0;
+        s.destruccion += ataque.destructionPercentage || 0;
+        if (ataque.stars === 3) s.tresEstrellas++;
       }
-      if (m.bestOpponentAttack) {
-        p.defStars += m.bestOpponentAttack.stars || 0;
-        p.defDest += m.bestOpponentAttack.destructionPercentage || 0;
-        p.defCount += 1;
-      }
+      if (!m.ataques || m.ataques.length === 0) s.noAtaco++;
     }
   }
 
-  const result = Object.values(players).map(p => ({
-    ...p,
-    missed: p.of - p.attacks,
-    missedRate: p.of > 0 ? +(((p.of - p.attacks) / p.of) * 100).toFixed(1) : 0,
-    avgStars: p.attacks > 0 ? +(p.stars / p.attacks).toFixed(2) : 0,
-    avgTrueStars: p.attacks > 0 ? +(p.trueStars / p.attacks).toFixed(2) : 0,
-    avgDest: p.attacks > 0 ? +(p.dest / p.attacks).toFixed(1) : 0,
-    threeStarRate: p.attacks > 0 ? +((p.threeStars / p.attacks) * 100).toFixed(1) : 0,
-  })).filter(p => p.wars > 0).sort((a, b) => b.trueStars - a.trueStars);
+  const result = Object.values(statsMap).map(s => {
+    const miembro = miembrosMap[s.tag];
+    return {
+      ...s,
+      leagueTier: miembro?.leagueTier || null,
+      trofeos: miembro?.trophies || null,
+      rate: s.ataques > 0 ? Math.round((s.tresEstrellas / s.ataques) * 100) : 0,
+      avgDestruccion: s.ataques > 0 ? Math.round(s.destruccion / s.ataques) : 0
+    };
+  });
 
-  return ok({ players: result, totalWars: wars.length });
+  result.sort((a, b) => b.estrellas - a.estrellas || b.rate - a.rate);
+
+  return ok(result);
 };

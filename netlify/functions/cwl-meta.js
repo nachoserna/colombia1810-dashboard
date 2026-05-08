@@ -3,20 +3,16 @@ const { verifyToken, unauthorized, ok } = require('./_auth');
 
 exports.handler = async (event) => {
   if (!verifyToken(event)) return unauthorized();
+
   const db = await getDb();
-  const path = event.path.replace('/.netlify/functions/', '').replace('/api/', '');
 
-  const type = event.queryStringParameters?.type;
+  const [temporadas, clanes] = await Promise.all([
+    db.collection('guerras_cwl').distinct('season', { season: { $ne: null } }),
+    db.collection('clanes').find({}, { projection: { _id: 1, name: 1 } }).toArray()
+  ]);
 
-  if (type === 'seasons') {
-    const seasons = await db.collection('cwl_wars').distinct('season', { season: { $ne: null } });
-    return ok(seasons.filter(Boolean).sort().reverse());
-  }
-
-  if (type === 'leagues') {
-    const leagues = await db.collection('cwl_wars').distinct('clanLeague', { clanLeague: { $ne: null } });
-    return ok(leagues.filter(Boolean).sort());
-  }
-
-  return ok([]);
+  return ok({
+    temporadas: temporadas.sort().reverse(),
+    clanes: clanes.map(c => ({ tag: c._id, nombre: c.name }))
+  });
 };

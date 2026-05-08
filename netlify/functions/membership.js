@@ -4,14 +4,22 @@ const { verifyToken, unauthorized, ok } = require('./_auth');
 exports.handler = async (event) => {
   if (!verifyToken(event)) return unauthorized();
 
-  const { clan } = event.queryStringParameters || {};
+  const params = event.queryStringParameters || {};
+  const clanTagFiltro = params.clan;
+  const tipo = params.tipo; // 'ingreso' | 'salida' | undefined (todos)
+  const limit = parseInt(params.limit) || 100;
+
   const db = await getDb();
 
-  const match = { event: { $in: ['joined', 'left'] } };
-  if (clan) match.clanTag = clan;
+  const filtro = {};
+  if (clanTagFiltro) filtro.clanTag = clanTagFiltro;
+  if (tipo) filtro.tipo = tipo;
 
-  const events = await db.collection('membership_log')
-    .find(match).sort({ timestamp: -1 }).limit(100).toArray();
+  const registros = await db.collection('rotacion')
+    .find(filtro)
+    .sort({ fecha: -1 })
+    .limit(limit)
+    .toArray();
 
-  return ok(events);
+  return ok(registros);
 };

@@ -1,71 +1,40 @@
 const { getDb } = require('./_db');
-const { verifyToken, unauthorized, ok, err } = require('./_auth');
+const { verifyToken, unauthorized, ok } = require('./_auth');
 
-// Simple in-memory cache — 5 min TTL
 let cache = null;
 let cacheTime = 0;
-const CACHE_TTL = 5 * 60 * 1000;
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutos
 
 exports.handler = async (event) => {
   if (!verifyToken(event)) return unauthorized();
 
-  if (cache && Date.now() - cacheTime < CACHE_TTL) {
-    return ok(cache);
-  }
+  if (cache && Date.now() - cacheTime < CACHE_TTL) return ok(cache);
 
   const db = await getDb();
-  const clans = await db.collection('clans').find({}).toArray();
-  if (!clans.length) return err('No clans found');
 
-  const totalClans = clans.length;
-  const totalMembers = clans.reduce((s, c) => s + (c.members || 0), 0);
-  const clanTags = clans.map(c => c.tag);
+  const [clanes, miembros] = await Promise.all([
+    db.collection('clanes').find({}).toArray(),
+    db.collection('miembros').find({}).toArray()
+  ]);
 
-  // En Guerra — clan_wars con state inWar o preparation (recent, last 3 days)
-  const cutoff = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
-  const activeWars = await db.collection('clan_wars')
-    .find({
-      clanTag: { $in: clanTags },
-      state: { $in: ['inWar', 'preparation'] },
-      updatedAt: { $gte: cutoff }
-    })
-    .toArray();
+  // KPIs
+  const totalClanes = clanes.length;
+  const totalMiembros = miembros.length;
 
-  // Deduplicate by clanTag (one clan can have one active war)
-  const enWarClans = new Set(activeWars.map(w => w.clanTag));
-  const enWar = enWarClans.size;
+  // En guerra: clanes con currentwar state inWar o preparation
+  // Se deriva de la colección guerras — buscamos guerras con state activo
+  const guerrasActivas = await db.collection('guerras').find({
+    state: { $in: ['inWar', 'preparation'] }
+  }).toArray();
+  const enGuerra = new Set(guerrasActivas.map(g => g.clanTag)).size;
 
-  // CWL Activas — cwl_wars con state inWar o preparation (current month)
-  const now = new Date();
-  const currentSeason = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const activeCwl = await db.collection('cwl_wars')
-    .find({
-      clanTag: { $in: clanTags },
-      season: currentSeason,
-      state: { $in: ['inWar', 'preparation'] },
-      updatedAt: { $gte: cutoff }
-    })
-    .toArray();
+  // CWL activas: grupos con state inWar o preparation
+  const gruposCwlActivos = await db.collection('grupos_cwl').find({
+    state: { $in: ['inWar', 'preparation'] }
+  }).toArray();
+  const cwlActivas = new Set(gruposCwlActivos.map(g => g.clanTag)).size;
 
-  const cwlActiveClans = new Set(activeCwl.map(w => w.clanTag));
-  const cwlActive = cwlActiveClans.size;
-
-  // membersDelta4w
-  let membersDelta4w = null;
-  try {
-    const fourWeeksAgo = new Date(now - 28 * 24 * 60 * 60 * 1000);
-    const dateStr = fourWeeksAgo.toISOString().split('T')[0];
-    const snaps = await db.collection('player_snapshots')
-      .aggregate([
-        { $match: { snapshotDate: dateStr } },
-        { $group: { _id: null, count: { $sum: 1 } } }
-      ]).toArray();
-    if (snaps.length > 0) {
-      membersDelta4w = totalMembers - snaps[0].count;
-    }
-  } catch { /* ignore */ }
-
-  cache = { clans: totalClans, members: totalMembers, enWar, cwlActive, trends: { membersDelta4w } };
+  cache = { clanes: totalClanes, miembros: totalMiembros, enGuerra, cwlActivas };
   cacheTime = Date.now();
 
   return ok(cache);

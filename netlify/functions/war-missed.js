@@ -1,35 +1,58 @@
 const { getDb } = require('./_db');
-const { verifyToken, unauthorized, ok } = require('./_auth');
+const { verifyToken, unauthorized, ok, err } = require('./_auth');
+
+const CLAN_TAGS = [
+  '#90CLYR88', '#2JQYJ0PL9', '#2GGY8V0GR', '#2JCPQ8G0P',
+  '#2RRJRL882', '#2J290PRQ2', '#2JVJC9LVL'
+];
 
 exports.handler = async (event) => {
   if (!verifyToken(event)) return unauthorized();
 
-  const { clans, desde } = event.queryStringParameters || {};
+  const params = event.queryStringParameters || {};
+  const warMonth = params.month;
+  const clanTagFiltro = params.clan;
+
+  if (!warMonth) return err('month requerido (YYYY-MM)');
+
   const db = await getDb();
 
-  const match = { state: 'warEnded', warType: 'regular' };
-  if (clans) match.clanTag = { $in: clans.split(',').map(c => c.trim()) };
-  if (desde) match.startTime = { $gte: new Date(desde) };
+  const clanTagsFiltro = clanTagFiltro ? [clanTagFiltro] : CLAN_TAGS;
 
-  const wars = await db.collection('clan_wars').find(match).sort({ startTime: -1 }).limit(200).toArray();
+  const guerras = await db.collection('guerras').find({
+    warMonth,
+    clanTag: { $in: clanTagsFiltro },
+    state: 'warEnded'
+  }).toArray();
 
+  if (guerras.length === 0) return ok([]);
+
+  // Buscar jugadores que no atacaron
   const missed = [];
-  for (const war of wars) {
-    for (const m of war.clan?.members || []) {
-      const attacksPerMember = war.attacksPerMember || 2;
-      const made = m.attacks?.length || 0;
-      if (made < attacksPerMember) {
+
+  for (const guerra of guerras) {
+    for (const m of (guerra.miembros || [])) {
+      const ataques = m.ataques || [];
+      const esperados = guerra.attacksPerMember || 2;
+
+      if (ataques.length < esperados) {
         missed.push({
-          name: m.name, tag: m.tag,
-          clanName: war.clanName, clanTag: war.clanTag,
-          opponentName: war.opponentName,
-          missed: attacksPerMember - made,
-          warDate: war.startTime,
-          teamSize: war.teamSize
+          jugadorTag: m.tag,
+          jugadorNombre: m.name,
+          clanTag: guerra.clanTag,
+          warId: guerra._id,
+          endTime: guerra.endTime,
+          warMonth: guerra.warMonth,
+          ataquesRealizados: ataques.length,
+          ataquesEsperados: esperados,
+          ataquesPerdidos: esperados - ataques.length
         });
       }
     }
   }
 
-  return ok(missed.sort((a, b) => new Date(b.warDate) - new Date(a.warDate)));
+  // Ordenar por fecha desc
+  missed.sort((a, b) => b.endTime?.localeCompare(a.endTime));
+
+  return ok(missed);
 };
