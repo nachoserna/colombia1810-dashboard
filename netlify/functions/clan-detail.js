@@ -50,7 +50,8 @@ exports.handler = async (event) => {
 
   // Cargar catálogo de league tiers dinámicamente
   const tiersList = await db.collection('league_tiers').find({}).toArray();
-  const tiersMap = Object.fromEntries(tiersList.map(t => [t._id, t.name]));
+  const LEGEND_NAMES = { 105000034: "Legend League III", 105000035: "Legend League II", 105000036: "Legend League I" };
+  const tiersMap = Object.fromEntries(tiersList.map(t => [t._id, { name: LEGEND_NAMES[t._id] || t.name, iconUrl: t.iconUrls?.small || null }]));
 
   const clan = await db.collection('clanes').findOne({ _id: clanTag });
   if (!clan) return err('Clan no encontrado', 404);
@@ -77,7 +78,9 @@ exports.handler = async (event) => {
   const members = miembros.map(m => {
     const tag = m._id;
     const leagueId = m.leagueTier?.id || 0;
-    const leagueName = tiersMap[leagueId] || m.leagueTier?.name || 'Unranked';
+    const tierData = tiersMap[leagueId];
+    const leagueName = tierData?.name || m.leagueTier?.name || 'Unranked';
+    const leagueIconUrl = tierData?.iconUrl || m.leagueTier?.iconUrls?.small || null;
 
     const ataquesWarAct = guerras
       .filter(g => g.warMonth === mesAct)
@@ -103,7 +106,7 @@ exports.handler = async (event) => {
       trophies: m.trophies,
       league: leagueName,
       leagueId,
-      leagueIconUrl: m.leagueTier?.iconUrls?.small || null,
+      leagueIconUrl,
       war0: calcStats(ataquesWarAct),
       war1: calcStats(ataquesWarAnt),
       cwl0: calcStats(ataquesCwlAct),
