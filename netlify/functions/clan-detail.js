@@ -99,5 +99,11 @@ exports.handler = async (event) => {
     };
   });
 
+  // Ordenar por liga (id desc) luego trofeos (desc)
+  members.sort((a, b) => {
+    if (b.leagueId !== a.leagueId) return b.leagueId - a.leagueId;
+    return (b.trophies || 0) - (a.trophies || 0);
+  });
+
   return ok({ clan: normalizeClan(clan), members, seasons, warLabels });
 };
