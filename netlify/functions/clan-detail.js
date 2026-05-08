@@ -30,11 +30,10 @@ function normalizeClan(c) {
   };
 }
 
-// Los IDs de leagueTier van de 105000001 (Bronze I) hasta 105000036 (Legend)
-// Unranked tiene id 29000000 — lo tratamos como 0 para que vaya al final
+// Unranked (105000000 y 29000000) van al final con sort key 0
 function leagueSortKey(leagueId) {
-  if (!leagueId || leagueId === 29000000) return 0;
-  return leagueId; // 105000036 = Legend (mayor), 105000001 = Bronze I (menor)
+  if (!leagueId || leagueId === 105000000 || leagueId === 29000000) return 0;
+  return leagueId;
 }
 
 exports.handler = async (event) => {
@@ -48,6 +47,10 @@ exports.handler = async (event) => {
   const mesAct = mesActual();
   const mesAnt = mesAnterior(1);
   const mesAnt2 = mesAnterior(2);
+
+  // Cargar catálogo de league tiers dinámicamente
+  const tiersList = await db.collection('league_tiers').find({}).toArray();
+  const tiersMap = Object.fromEntries(tiersList.map(t => [t._id, t.name]));
 
   const clan = await db.collection('clanes').findOne({ _id: clanTag });
   if (!clan) return err('Clan no encontrado', 404);
@@ -73,6 +76,8 @@ exports.handler = async (event) => {
 
   const members = miembros.map(m => {
     const tag = m._id;
+    const leagueId = m.leagueTier?.id || 0;
+    const leagueName = tiersMap[leagueId] || m.leagueTier?.name || 'Unranked';
 
     const ataquesWarAct = guerras
       .filter(g => g.warMonth === mesAct)
@@ -96,9 +101,9 @@ exports.handler = async (event) => {
       role: m.role,
       townHallLevel: m.townHallLevel,
       trophies: m.trophies,
-      league: m.leagueTier?.nombre || m.leagueTier?.name || 'Unranked',
-      leagueId: m.leagueTier?.id || 0,
-      leagueIconUrl: m.leagueTier?.iconUrl || m.leagueTier?.iconUrls?.small || null,
+      league: leagueName,
+      leagueId,
+      leagueIconUrl: m.leagueTier?.iconUrls?.small || null,
       war0: calcStats(ataquesWarAct),
       war1: calcStats(ataquesWarAnt),
       cwl0: calcStats(ataquesCwlAct),
@@ -106,7 +111,7 @@ exports.handler = async (event) => {
     };
   });
 
-  // Ordenar: Legend primero, luego por liga desc, Unranked al final, trofeos desc dentro de cada liga
+  // Ordenar: sort key desc → trofeos desc
   members.sort((a, b) => {
     const ka = leagueSortKey(a.leagueId);
     const kb = leagueSortKey(b.leagueId);
