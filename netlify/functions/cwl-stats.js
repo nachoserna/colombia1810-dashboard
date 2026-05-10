@@ -1,5 +1,5 @@
 const { getDb } = require('./_db');
-const { verifyToken, unauthorized, ok, err } = require('./_auth');
+const { verifyToken, unauthorized, ok } = require('./_auth');
 
 const CLAN_TAGS = [
   '#90CLYR88', '#2JQYJ0PL9', '#2GGY8V0GR', '#2JCPQ8G0P',
@@ -15,7 +15,6 @@ exports.handler = async (event) => {
 
   const db = await getDb();
 
-  // Filtro de temporada
   const filtroSeason = desde ? { season: { $gte: desde } } : {};
 
   const guerras = await db.collection('guerras_cwl').find({
@@ -24,64 +23,57 @@ exports.handler = async (event) => {
   }).toArray();
 
   const totalWars = guerras.length;
-
   if (totalWars === 0) return ok({ players: [], totalWars: 0 });
 
-  // Miembros actuales para info de liga y TH
-  const miembros = await db.collection('miembros').find({
-    clanTag: { $in: clansFiltro }
-  }).toArray();
+  const miembros = await db.collection('miembros').find({ clanTag: { $in: clansFiltro } }).toArray();
   const miembrosMap = Object.fromEntries(miembros.map(m => [m._id, m]));
 
-  // Clanes para nombres
-  const clanes = await db.collection('clanes').find({
-    _id: { $in: clansFiltro }
-  }).toArray();
+  const clanes = await db.collection('clanes').find({ _id: { $in: clansFiltro } }).toArray();
   const clanesMap = Object.fromEntries(clanes.map(c => [c._id, c.name]));
 
-  // Acumular stats por jugador
   const statsMap = {};
 
   for (const guerra of guerras) {
-    for (const m of (guerra.miembros || [])) {
+    // Los miembros están en clan.members (estructura original de la API)
+    // El clan que es nuestro está identificado por clanTag
+    const nuestroClan = guerra.clan?.tag === guerra.clanTag ? guerra.clan : guerra.opponent;
+    const miembrosGuerra = nuestroClan?.members || [];
+
+    for (const m of miembrosGuerra) {
       if (!statsMap[m.tag]) {
         statsMap[m.tag] = {
           tag: m.tag,
           name: m.name,
-          townHallLevel: m.townHallLevel || 0,
+          townHallLevel: m.townhallLevel || m.townHallLevel || 0,
           clanTag: guerra.clanTag,
           clanName: clanesMap[guerra.clanTag] || guerra.clanTag,
-          wars: 0,
-          attacks: 0,
-          stars: 0,
-          destruccion: 0,
-          tresEstrellas: 0,
-          noAtaco: 0,
-          defStars: 0,
-          defCount: 0
+          wars: 0, attacks: 0, stars: 0, destruccion: 0,
+          tresEstrellas: 0, noAtaco: 0, defStars: 0, defCount: 0
         };
       }
 
       const s = statsMap[m.tag];
       s.wars++;
 
-      if (m.ataque) {
-        s.attacks++;
-        s.stars += m.ataque.stars || 0;
-        s.destruccion += m.ataque.destructionPercentage || 0;
-        if (m.ataque.stars === 3) s.tresEstrellas++;
+      const ataques = m.attacks || [];
+      if (ataques.length > 0) {
+        for (const ataque of ataques) {
+          s.attacks++;
+          s.stars += ataque.stars || 0;
+          s.destruccion += ataque.destructionPercentage || 0;
+          if (ataque.stars === 3) s.tresEstrellas++;
+        }
       } else {
         s.noAtaco++;
       }
 
-      if (m.mejorDefensaRecibida) {
-        s.defStars += m.mejorDefensaRecibida.estrellas || m.mejorDefensaRecibida.stars || 0;
+      if (m.bestOpponentAttack) {
+        s.defStars += m.bestOpponentAttack.stars || 0;
         s.defCount++;
       }
     }
   }
 
-  // Calcular rates y enriquecer
   const players = Object.values(statsMap).map(s => {
     const miembro = miembrosMap[s.tag];
     const avgStars = s.attacks > 0 ? (s.stars / s.attacks).toFixed(2) : '0.00';
@@ -99,7 +91,7 @@ exports.handler = async (event) => {
       missed: s.noAtaco,
       stars: s.stars,
       avgStars,
-      avgTrueStars: avgStars, // CWL solo tiene 1 ataque, true stars = stars
+      avgTrueStars: avgStars,
       avgDest,
       threeStarRate,
       avgDefStars,
@@ -108,7 +100,6 @@ exports.handler = async (event) => {
     };
   });
 
-  // Ordenar por estrellas desc
   players.sort((a, b) => b.stars - a.stars || b.threeStarRate - a.threeStarRate);
 
   return ok({ players, totalWars });
