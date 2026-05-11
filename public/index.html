@@ -437,7 +437,7 @@ async function loadFamilia(){
       ? (c.previousRankColombia > c.rankColombia ? 'var(--green,#22c55e)' : c.previousRankColombia < c.rankColombia ? '#ef4444' : 'var(--muted)')
       : '';
     const rankStr = c.rankColombia
-      ? `<span style="color:${rankColor};font-size:11px">${rankArrow}</span> #${c.rankColombia} 🇨🇴`
+      ? `<span style="color:${rankColor};font-size:12px;vertical-align:middle;line-height:1">${rankArrow}</span><span style="vertical-align:middle"> #${c.rankColombia} 🇨🇴</span>`
       : '—';
     return`<div class="clan-card" onclick="loadClanDetail('${c.tag}')">
       <div class="clan-card-top">${badge}<div><div class="clan-card-name">${c.name}</div><div class="clan-card-tag">${c.tag}</div></div></div>
