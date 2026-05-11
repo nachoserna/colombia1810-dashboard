@@ -6,6 +6,9 @@ const CLAN_TAGS = [
   '#2RRJRL882', '#2J290PRQ2', '#2JVJC9LVL'
 ];
 
+const cache = {};
+const CACHE_TTL = 5 * 60 * 1000;
+
 exports.handler = async (event) => {
   if (!verifyToken(event)) return unauthorized();
 
@@ -13,6 +16,11 @@ exports.handler = async (event) => {
   const desde = params.desde;
   const league = params.league;
   const clansFiltro = params.clans ? params.clans.split(',') : CLAN_TAGS;
+
+  const cacheKey = `${desde||'all'}_${league||'all'}_${clansFiltro.join(',')}`;
+  if (cache[cacheKey] && Date.now() - cache[cacheKey].time < CACHE_TTL) {
+    return ok(cache[cacheKey].data);
+  }
 
   const db = await getDb();
 

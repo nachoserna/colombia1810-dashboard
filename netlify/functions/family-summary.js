@@ -3,7 +3,7 @@ const { verifyToken, unauthorized, ok } = require('./_auth');
 
 let cache = null;
 let cacheTime = 0;
-const CACHE_TTL = 5 * 60 * 1000;
+const CACHE_TTL = 15 * 60 * 1000;
 
 exports.handler = async (event) => {
   if (!verifyToken(event)) return unauthorized();
