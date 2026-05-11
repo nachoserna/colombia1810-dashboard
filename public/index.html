@@ -430,11 +430,21 @@ async function loadFamilia(){
       ?`<img class="clan-badge" src="${c.badgeUrls.small}" alt="${c.name}" onerror="this.style.display='none'">`
       :`<div class="clan-badge-placeholder">⚔️</div>`;
     const leagueImg=c.warLeagueIconUrl?`<img src="${c.warLeagueIconUrl}" alt="" style="width:18px;height:18px;object-fit:contain">`:'⚔️';
+    const rankArrow = c.rankColombia
+      ? (c.previousRankColombia > c.rankColombia ? '▲' : c.previousRankColombia < c.rankColombia ? '▼' : '▬')
+      : '';
+    const rankColor = c.rankColombia
+      ? (c.previousRankColombia > c.rankColombia ? 'var(--green,#22c55e)' : c.previousRankColombia < c.rankColombia ? '#ef4444' : 'var(--muted)')
+      : '';
+    const rankStr = c.rankColombia
+      ? `<span style="color:${rankColor};font-size:11px">${rankArrow}</span> #${c.rankColombia} 🇨🇴`
+      : '—';
     return`<div class="clan-card" onclick="loadClanDetail('${c.tag}')">
       <div class="clan-card-top">${badge}<div><div class="clan-card-name">${c.name}</div><div class="clan-card-tag">${c.tag}</div></div></div>
       <div class="clan-stats">
         <div><div class="clan-stat-label">Miembros</div><div class="clan-stat-value">${c.members||0}</div></div>
         <div><div class="clan-stat-label">Nivel</div><div class="clan-stat-value">${c.level||'—'}</div></div>
+        <div><div class="clan-stat-label">Ranking CO</div><div class="clan-stat-value">${rankStr}</div></div>
       </div>
       <div class="league-badge">${leagueImg} ${c.warLeague||'Unranked'}</div>
     </div>`;

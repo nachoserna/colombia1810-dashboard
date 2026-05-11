@@ -17,7 +17,10 @@ exports.handler = async (event) => {
     members: c.members,
     warLeague: c.warLeague?.name || 'Unranked',
     warLeagueIconUrl: c.warLeague?.iconUrls?.small || null,
-    badgeUrls: c.badgeUrls
+    badgeUrls: c.badgeUrls,
+    rankColombia: c.rankColombia || null,
+    previousRankColombia: c.previousRankColombia || null,
+    clanPoints: c.clanPoints || null
   }));
 
   return ok(result);
