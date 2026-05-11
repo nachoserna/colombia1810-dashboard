@@ -363,6 +363,12 @@ function fmtSeason(s){
   const meses=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   return `${meses[parseInt(m)-1]} ${y}`;
 }
+function fmtSeason(s){
+  if(!s)return s;
+  const [y,m]=s.split('-');
+  const meses=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  return `${meses[parseInt(m)-1]} ${y}`;
+}
 function buildFilters(){
   ['cwl-clans','war-clans'].forEach(id=>{
     const c=document.getElementById(id);if(!c)return;
@@ -377,25 +383,25 @@ function buildFilters(){
   api('cwl-meta').then(meta=>{
     if(!meta)return;
     const cwlDesde=document.getElementById('cwl-desde');
-    if(cwlDesde){
-      cwlDesde.innerHTML='<option value="">Todo el historial</option>'+
-        (meta.temporadas||[]).map(t=>`<option value="${t}">Desde ${fmtSeason(t)}</option>`).join('');
-    }
+    if(cwlDesde)cwlDesde.innerHTML='<option value="">Todo el historial</option>'+(meta.temporadas||[]).map(t=>`<option value="${t}">Desde ${fmtSeason(t)}</option>`).join('');
     const warDesde=document.getElementById('war-desde');
-    if(warDesde){
-      warDesde.innerHTML='<option value="">Todo el historial</option>'+
-        WAR_DESDE_OPTIONS.slice(1).map(o=>`<option value="${o.value}">${o.label}</option>`).join('');
-    }
+    if(warDesde)warDesde.innerHTML='<option value="">Todo el historial</option>'+WAR_DESDE_OPTIONS.slice(1).map(o=>`<option value="${o.value}">${o.label}</option>`).join('');
   });
   api('cwl-meta?type=leagues').then(leagues=>{
     const sel=document.getElementById('cwl-league');if(!sel||!leagues)return;
     sel.innerHTML='<option value="">Todas las ligas</option>'+leagues.map(l=>`<option value="${l}">${l}</option>`).join('');
   });
 }
+
 function toggleAll(id){
   const items=document.getElementById(id).querySelectorAll('.clan-check-item');
   const allOn=[...items].every(i=>i.classList.contains('selected'));
   items.forEach(i=>i.classList.toggle('selected',!allOn));
+  if(id==='cwl-clans')loadCWL();if(id==='war-clans')loadWars();
+}
+function selectNone(id){
+  document.getElementById(id).querySelectorAll('.clan-check-item').forEach(i=>i.classList.remove('selected'));
+  if(id==='cwl-clans')loadCWL();if(id==='war-clans')loadWars();
 }
 function getClans(id){
   return[...document.getElementById(id).querySelectorAll('.clan-check-item.selected')].map(i=>i.dataset.tag).filter(Boolean);
@@ -550,17 +556,36 @@ async function loadCWL(){
   if(selected.length)params.set('clans',selected.join(','));
   if(desde)params.set('desde',desde);
   if(league)params.set('league',league);
+  if(!selected.length){document.getElementById('cwl-table').innerHTML='<div class="empty">Sin datos</div>';document.getElementById('cwl-meta').textContent='';document.getElementById('cwl-summary').innerHTML='';return;}
   const data=await api('cwl-stats?'+params);if(!data)return;
   const label=desde?`Desde ${fmtSeason(desde)}`:'Todo el historial';
   document.getElementById('cwl-meta').textContent=`${data.totalWars} guerras`;
   document.getElementById('cwl-summary').innerHTML=`Mostrando: <span>${selected.length||clans.length} clanes</span> · <span>${label.toLowerCase()}</span>`;
   if(!data.players.length){document.getElementById('cwl-table').innerHTML='<div class="empty">Sin datos</div>';return;}
-  document.getElementById('cwl-table').innerHTML=`<table>
-    <thead><tr><th>#</th><th>Jugador</th><th>Clan</th><th class="th-num">Ataques</th><th class="th-num">⭐ Avg</th><th class="th-num">% Dest</th><th class="th-num">3⭐ %</th><th class="th-num">Missed</th><th class="th-num">Def ⭐</th><th class="th-num">Pos. Avg</th></tr></thead>
-    <tbody>${data.players.map((p,i)=>`
-      <tr><td class="td-rank">${i+1}</td><td class="td-name">${p.name}</td>
+  let _cwlData=data.players,_cwlCol='stars',_cwlDir=1;
+  function _cwlTh(l,col){const a=_cwlCol===col,ar=a?(_cwlDir===1?' ↓':' ↑'):'',st=a?'color:var(--accent)':'';return`<th class="th-num" style="cursor:pointer;${st}" onclick="_cwlSort('${col}')">${l}${ar}</th>`;}
+  window._cwlSort=function(col){if(_cwlCol===col)_cwlDir*=-1;else{_cwlCol=col;_cwlDir=1;}renderCwlTable();};
+  function renderCwlTable(){
+    const sorted=[..._cwlData].sort((a,b)=>{
+      if(_cwlCol==='name')return _cwlDir*(a.name.toLowerCase()<b.name.toLowerCase()?-1:1);
+      let va=0,vb=0;
+      if(_cwlCol==='stars')va=a.stars,vb=b.stars;
+      else if(_cwlCol==='attacks')va=a.attacks,vb=b.attacks;
+      else if(_cwlCol==='avgStars')va=parseFloat(a.avgStars),vb=parseFloat(b.avgStars);
+      else if(_cwlCol==='avgDest')va=a.avgDest,vb=b.avgDest;
+      else if(_cwlCol==='threeStarRate')va=a.threeStarRate,vb=b.threeStarRate;
+      else if(_cwlCol==='missed')va=a.missed,vb=b.missed;
+      else if(_cwlCol==='avgDefStars')va=parseFloat(a.avgDefStars),vb=parseFloat(b.avgDefStars);
+      else if(_cwlCol==='avgMapPosition')va=parseFloat(a.avgMapPosition)||99,vb=parseFloat(b.avgMapPosition)||99;
+      return _cwlDir*(vb-va);
+    });
+    document.getElementById('cwl-table').innerHTML=`<table>
+    <thead><tr><th style="cursor:pointer" onclick="_cwlSort('name')">Jugador</th><th>Clan</th>${_cwlTh('Ataques','attacks')}${_cwlTh('⭐ Total','stars')}${_cwlTh('⭐ Avg','avgStars')}${_cwlTh('% Dest','avgDest')}${_cwlTh('3⭐ %','threeStarRate')}${_cwlTh('Missed','missed')}${_cwlTh('Def ⭐','avgDefStars')}${_cwlTh('Pos. Avg','avgMapPosition')}</tr></thead>
+    <tbody>${sorted.map((p,i)=>`
+      <tr><td class="td-name">${p.name}</td>
       <td class="td-tag">${p.clanName||''}</td>
       <td class="td-num">${p.attacks}</td>
+      <td class="td-num"><b>${p.stars}</b></td>
       <td class="td-num">${p.avgStars}</td>
       <td class="td-num">${p.avgDest}%</td>
       <td class="td-num"><span class="${rateClass(p.threeStarRate)}">${p.threeStarRate}%</span></td>
@@ -568,6 +593,8 @@ async function loadCWL(){
       <td class="td-num">${p.avgDefStars}</td>
       <td class="td-num">${p.avgMapPosition||'—'}</td></tr>`).join('')}
     </tbody></table>`;
+  }
+  renderCwlTable();
 }
 async function loadWars(){
   const selected=getClans('war-clans');
@@ -577,6 +604,7 @@ async function loadWars(){
   const params=new URLSearchParams();
   if(selected.length)params.set('clans',selected.join(','));
   if(desde)params.set('desde',desde);
+  if(!selected.length){document.getElementById('war-table').innerHTML='<div class="empty">Sin datos</div>';document.getElementById('missed-table').innerHTML='<div class="empty">Sin ataques perdidos</div>';document.getElementById('war-meta').textContent='';document.getElementById('war-summary').innerHTML='';return;}
   const[stats,missed]=await Promise.all([api('war-stats?'+params),api('war-missed?'+params)]);
   if(!stats)return;
   const label=WAR_DESDE_OPTIONS.find(o=>o.value===desde)?.label||'Todo el historial';

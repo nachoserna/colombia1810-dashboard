@@ -17,11 +17,25 @@ exports.handler = async (event) => {
   const db = await getDb();
 
   const filtroSeason = desde ? { season: { $gte: desde } } : {};
-  const filtroLeague = league ? { 'opponent.name': league } : {};
+  // Filtrar por liga de guerra del grupo CWL
+  let warTagsFiltro = null;
+  if (league) {
+    const grupos = await db.collection('grupos_cwl').find(
+      { clanTag: { $in: clansFiltro } },
+      { projection: { warTags: 1, clans: 1 } }
+    ).toArray();
+    warTagsFiltro = [];
+    for (const g of grupos) {
+      const clan = (g.clans || []).find(c => clansFiltro.includes(c.tag));
+      if (clan?.warLeague?.name === league) warTagsFiltro.push(...(g.warTags || []));
+    }
+  }
+
+  const filtroWarTags = warTagsFiltro ? { _id: { $in: warTagsFiltro } } : {};
 
   const guerras = await db.collection('guerras_cwl').find({
     ...filtroSeason,
-    ...filtroLeague,
+    ...filtroWarTags,
     clanTag: { $in: clansFiltro }
   }).toArray();
 
