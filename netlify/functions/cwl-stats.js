@@ -48,7 +48,8 @@ exports.handler = async (event) => {
           clanTag: guerra.clanTag,
           clanName: clanesMap[guerra.clanTag] || guerra.clanTag,
           wars: 0, attacks: 0, stars: 0, destruccion: 0,
-          tresEstrellas: 0, noAtaco: 0, defStars: 0, defCount: 0
+          tresEstrellas: 0, noAtaco: 0, defStars: 0, defCount: 0,
+          mapPositionSum: 0, mapPositionCount: 0
         };
       }
 
@@ -62,6 +63,9 @@ exports.handler = async (event) => {
           s.stars += ataque.stars || 0;
           s.destruccion += ataque.destructionPercentage || 0;
           if (ataque.stars === 3) s.tresEstrellas++;
+          // Buscar mapPosition del defensor
+          const defensor = miembrosGuerra.find(x => x.tag === ataque.defenderTag);
+          if (defensor?.mapPosition) { s.mapPositionSum += defensor.mapPosition; s.mapPositionCount++; }
         }
       } else {
         s.noAtaco++;
@@ -96,7 +100,8 @@ exports.handler = async (event) => {
       threeStarRate,
       avgDefStars,
       leagueTier: miembro?.leagueTier || null,
-      trophies: miembro?.trophies || null
+      trophies: miembro?.trophies || null,
+      avgMapPosition: s.mapPositionCount > 0 ? (s.mapPositionSum / s.mapPositionCount).toFixed(1) : null
     };
   });
 

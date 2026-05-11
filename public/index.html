@@ -541,20 +541,17 @@ async function loadCWL(){
   document.getElementById('cwl-summary').innerHTML=`Mostrando: <span>${selected.length||clans.length} clanes</span> · <span>${label.toLowerCase()}</span>`;
   if(!data.players.length){document.getElementById('cwl-table').innerHTML='<div class="empty">Sin datos</div>';return;}
   document.getElementById('cwl-table').innerHTML=`<table>
-    <thead><tr><th>#</th><th>Jugador</th><th>Clan</th><th class="th-num">TH</th>
-    <th class="th-num">Guerras</th><th class="th-num">Ataques</th><th class="th-num">⭐ Avg</th>
-    <th class="th-num">True ⭐</th><th class="th-num">% Dest</th><th class="th-num">3⭐ %</th>
-    <th class="th-num">Missed</th><th class="th-num">Def ⭐</th></tr></thead>
+    <thead><tr><th>#</th><th>Jugador</th><th>Clan</th><th class="th-num">Ataques</th><th class="th-num">⭐ Avg</th><th class="th-num">% Dest</th><th class="th-num">3⭐ %</th><th class="th-num">Missed</th><th class="th-num">Def ⭐</th><th class="th-num">Pos. Avg</th></tr></thead>
     <tbody>${data.players.map((p,i)=>`
       <tr><td class="td-rank">${i+1}</td><td class="td-name">${p.name}</td>
       <td class="td-tag">${p.clanName||''}</td>
-      <td class="td-num"><span class="th-badge ${p.townHallLevel>=18?'th18':''}">${p.townHallLevel||'?'}</span></td>
-      <td class="td-num">${p.wars}</td><td class="td-num">${p.attacks}</td>
-      <td class="td-num">${p.avgStars}</td><td class="td-num"><b>${p.avgTrueStars}</b></td>
+      <td class="td-num">${p.attacks}</td>
+      <td class="td-num">${p.avgStars}</td>
       <td class="td-num">${p.avgDest}%</td>
       <td class="td-num"><span class="${rateClass(p.threeStarRate)}">${p.threeStarRate}%</span></td>
       <td class="td-num">${p.missed>0?`<span class="missed-badge">${p.missed}</span>`:'—'}</td>
-      <td class="td-num">${p.avgDefStars}</td></tr>`).join('')}
+      <td class="td-num">${p.avgDefStars}</td>
+      <td class="td-num">${p.avgMapPosition||'—'}</td></tr>`).join('')}
     </tbody></table>`;
 }
 async function loadWars(){
@@ -571,15 +568,12 @@ async function loadWars(){
   document.getElementById('war-meta').textContent=`${stats.totalWars} guerras`;
   document.getElementById('war-summary').innerHTML=`Mostrando: <span>${selected.length||clans.length} clanes</span> · <span>${label.toLowerCase()}</span>`;
   document.getElementById('war-table').innerHTML=!stats.players.length?'<div class="empty">Sin datos</div>':`<table>
-    <thead><tr><th>#</th><th>Jugador</th><th>Clan</th><th class="th-num">TH</th>
-    <th class="th-num">Guerras</th><th class="th-num">Ataques</th><th class="th-num">True ⭐</th>
-    <th class="th-num">% Dest</th><th class="th-num">3⭐ %</th><th class="th-num">Missed</th><th class="th-num">% Miss</th></tr></thead>
+    <thead><tr><th>#</th><th>Jugador</th><th>Clan</th><th class="th-num">Ataques</th><th class="th-num">⭐ Avg</th><th class="th-num">% Dest</th><th class="th-num">3⭐ %</th><th class="th-num">Missed</th><th class="th-num">% Miss</th></tr></thead>
     <tbody>${stats.players.map((p,i)=>`
       <tr><td class="td-rank">${i+1}</td><td class="td-name">${p.name}</td>
       <td class="td-tag">${p.clanName||''}</td>
-      <td class="td-num"><span class="th-badge ${p.townHallLevel>=18?'th18':''}">${p.townHallLevel||'?'}</span></td>
-      <td class="td-num">${p.wars}</td><td class="td-num">${p.attacks}</td>
-      <td class="td-num"><b>${p.avgTrueStars}</b></td><td class="td-num">${p.avgDest}%</td>
+      <td class="td-num">${p.attacks}</td>
+      <td class="td-num">${p.avgTrueStars}</td><td class="td-num">${p.avgDest}%</td>
       <td class="td-num"><span class="${rateClass(p.threeStarRate)}">${p.threeStarRate}%</span></td>
       <td class="td-num">${p.missed>0?`<span class="missed-badge">${p.missed}</span>`:'—'}</td>
       <td class="td-num ${p.missedRate>15?'rate-low':''}">${p.missedRate}%</td></tr>`).join('')}
