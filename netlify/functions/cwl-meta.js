@@ -13,20 +13,14 @@ exports.handler = async (event) => {
   const type = event.queryStringParameters?.type;
 
   if (type === 'leagues') {
-    // Obtener ligas de guerra de los grupos CWL de nuestros clanes
+    // Liga de guerra desde grupos_cwl (histórico)
     const grupos = await db.collection('grupos_cwl').find(
-      { clanTag: { $in: CLAN_TAGS } },
-      { projection: { clans: 1 } }
+      { clanTag: { $in: CLAN_TAGS }, 'warLeague.name': { $exists: true } },
+      { projection: { 'warLeague.name': 1 } }
     ).toArray();
 
-    const ligas = new Set();
-    for (const grupo of grupos) {
-      for (const clan of (grupo.clans || [])) {
-        if (clan.warLeague?.name) ligas.add(clan.warLeague.name);
-      }
-    }
-
-    return ok([...ligas].sort());
+    const ligas = [...new Set(grupos.map(g => g.warLeague?.name).filter(Boolean))].sort();
+    return ok(ligas);
   }
 
   const [temporadas, clanes] = await Promise.all([

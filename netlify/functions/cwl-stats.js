@@ -17,18 +17,14 @@ exports.handler = async (event) => {
   const db = await getDb();
 
   const filtroSeason = desde ? { season: { $gte: desde } } : {};
-  // Filtrar por liga de guerra del grupo CWL
+  // Filtrar por warLeague histórica de grupos_cwl
   let warTagsFiltro = null;
   if (league) {
     const grupos = await db.collection('grupos_cwl').find(
-      { clanTag: { $in: clansFiltro } },
-      { projection: { warTags: 1, clans: 1 } }
+      { clanTag: { $in: clansFiltro }, 'warLeague.name': league, ...filtroSeason },
+      { projection: { warTags: 1 } }
     ).toArray();
-    warTagsFiltro = [];
-    for (const g of grupos) {
-      const clan = (g.clans || []).find(c => clansFiltro.includes(c.tag));
-      if (clan?.warLeague?.name === league) warTagsFiltro.push(...(g.warTags || []));
-    }
+    warTagsFiltro = grupos.flatMap(g => g.warTags || []);
   }
 
   const filtroWarTags = warTagsFiltro ? { _id: { $in: warTagsFiltro } } : {};
