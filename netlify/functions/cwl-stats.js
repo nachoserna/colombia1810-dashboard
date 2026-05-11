@@ -37,7 +37,10 @@ exports.handler = async (event) => {
     // Los miembros están en clan.members (estructura original de la API)
     // El clan que es nuestro está identificado por clanTag
     const nuestroClan = guerra.clan?.tag === guerra.clanTag ? guerra.clan : guerra.opponent;
+    const clanRival = guerra.clan?.tag === guerra.clanTag ? guerra.opponent : guerra.clan;
     const miembrosGuerra = nuestroClan?.members || [];
+    const miembrosRival = clanRival?.members || [];
+    const todosMiembros = [...miembrosGuerra, ...miembrosRival];
 
     for (const m of miembrosGuerra) {
       if (!statsMap[m.tag]) {
@@ -64,7 +67,7 @@ exports.handler = async (event) => {
           s.destruccion += ataque.destructionPercentage || 0;
           if (ataque.stars === 3) s.tresEstrellas++;
           // Buscar mapPosition del defensor
-          const defensor = miembrosGuerra.find(x => x.tag === ataque.defenderTag);
+          const defensor = todosMiembros.find(x => x.tag === ataque.defenderTag);
           if (defensor?.mapPosition) { s.mapPositionSum += defensor.mapPosition; s.mapPositionCount++; }
         }
       } else {

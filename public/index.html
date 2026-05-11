@@ -366,7 +366,7 @@ function buildFilters(){
     const c=document.getElementById(id);if(!c)return;
     c.innerHTML=`<button class="select-all-btn" onclick="toggleAll('${id}')">Todos</button>`+
       clans.map(cl=>`<label class="clan-check-item selected" data-tag="${cl.tag}"><input type="checkbox" checked style="display:none">${cl.name}</label>`).join('');
-    c.querySelectorAll('.clan-check-item').forEach(item=>item.addEventListener('click',()=>item.classList.toggle('selected')));
+    c.querySelectorAll('.clan-check-item').forEach(item=>item.addEventListener('click',()=>{item.classList.toggle('selected');if(id==='cwl-clans')loadCWL();if(id==='war-clans')loadWars();}));
   });
   const pSel=document.getElementById('player-clan');
   if(pSel)pSel.innerHTML=clans.map(c=>`<option value="${c.tag}">${c.name}</option>`).join('');
