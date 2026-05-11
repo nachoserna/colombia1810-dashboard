@@ -381,6 +381,7 @@ function toggleAll(id){
   const items=document.getElementById(id).querySelectorAll('.clan-check-item');
   const allOn=[...items].every(i=>i.classList.contains('selected'));
   items.forEach(i=>i.classList.toggle('selected',!allOn));
+  if(id==='cwl-clans')loadCWL();if(id==='war-clans')loadWars();
 }
 function getClans(id){
   return[...document.getElementById(id).querySelectorAll('.clan-check-item.selected')].map(i=>i.dataset.tag).filter(Boolean);
@@ -540,12 +541,31 @@ async function loadCWL(){
   document.getElementById('cwl-meta').textContent=`${data.totalWars} guerras`;
   document.getElementById('cwl-summary').innerHTML=`Mostrando: <span>${selected.length||clans.length} clanes</span> · <span>${label.toLowerCase()}</span>`;
   if(!data.players.length){document.getElementById('cwl-table').innerHTML='<div class="empty">Sin datos</div>';return;}
-  document.getElementById('cwl-table').innerHTML=`<table>
-    <thead><tr><th>#</th><th>Jugador</th><th>Clan</th><th class="th-num">Ataques</th><th class="th-num">⭐ Avg</th><th class="th-num">% Dest</th><th class="th-num">3⭐ %</th><th class="th-num">Missed</th><th class="th-num">Def ⭐</th><th class="th-num">Pos. Avg</th></tr></thead>
-    <tbody>${data.players.map((p,i)=>`
-      <tr><td class="td-rank">${i+1}</td><td class="td-name">${p.name}</td>
+  let _cwlData=data.players, _cwlCol='stars', _cwlDir=1;
+  function _cwlTh(l,col){const a=_cwlCol===col,ar=a?(_cwlDir===1?' ↓':' ↑'):'',st=a?'color:var(--accent)':'';return`<th class="th-num" style="cursor:pointer;${st}" onclick="_cwlSort('${col}')">${l}${ar}</th>`;}
+  function _cwlSort(col){if(_cwlCol===col)_cwlDir*=-1;else{_cwlCol=col;_cwlDir=1;}renderCwlTable();}
+  window._cwlSort=_cwlSort;
+  function renderCwlTable(){
+    const sorted=[..._cwlData].sort((a,b)=>{
+      let va=0,vb=0;
+      if(_cwlCol==='name'){return _cwlDir*(a.name.toLowerCase()<b.name.toLowerCase()?-1:1);}
+      if(_cwlCol==='stars')va=a.stars,vb=b.stars;
+      else if(_cwlCol==='attacks')va=a.attacks,vb=b.attacks;
+      else if(_cwlCol==='avgStars')va=parseFloat(a.avgStars),vb=parseFloat(b.avgStars);
+      else if(_cwlCol==='avgDest')va=a.avgDest,vb=b.avgDest;
+      else if(_cwlCol==='threeStarRate')va=a.threeStarRate,vb=b.threeStarRate;
+      else if(_cwlCol==='missed')va=a.missed,vb=b.missed;
+      else if(_cwlCol==='avgDefStars')va=parseFloat(a.avgDefStars),vb=parseFloat(b.avgDefStars);
+      else if(_cwlCol==='avgMapPosition')va=parseFloat(a.avgMapPosition)||99,vb=parseFloat(b.avgMapPosition)||99;
+      return _cwlDir*(vb-va);
+    });
+    document.getElementById('cwl-table').innerHTML=`<table>
+    <thead><tr><th style="cursor:pointer" onclick="_cwlSort('name')">Jugador</th><th>Clan</th>${_cwlTh('Ataques','attacks')}${_cwlTh('⭐ Total','stars')}${_cwlTh('⭐ Avg','avgStars')}${_cwlTh('% Dest','avgDest')}${_cwlTh('3⭐ %','threeStarRate')}${_cwlTh('Missed','missed')}${_cwlTh('Def ⭐','avgDefStars')}${_cwlTh('Pos. Avg','avgMapPosition')}</tr></thead>
+    <tbody>${sorted.map((p,i)=>`
+      <tr><td class="td-name">${p.name}</td>
       <td class="td-tag">${p.clanName||''}</td>
       <td class="td-num">${p.attacks}</td>
+      <td class="td-num"><b>${p.stars}</b></td>
       <td class="td-num">${p.avgStars}</td>
       <td class="td-num">${p.avgDest}%</td>
       <td class="td-num"><span class="${rateClass(p.threeStarRate)}">${p.threeStarRate}%</span></td>
@@ -553,6 +573,8 @@ async function loadCWL(){
       <td class="td-num">${p.avgDefStars}</td>
       <td class="td-num">${p.avgMapPosition||'—'}</td></tr>`).join('')}
     </tbody></table>`;
+  }
+  renderCwlTable();
 }
 async function loadWars(){
   const selected=getClans('war-clans');
