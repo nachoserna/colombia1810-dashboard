@@ -11,14 +11,17 @@ exports.handler = async (event) => {
 
   const params = event.queryStringParameters || {};
   const desde = params.desde;
+  const league = params.league;
   const clansFiltro = params.clans ? params.clans.split(',') : CLAN_TAGS;
 
   const db = await getDb();
 
   const filtroSeason = desde ? { season: { $gte: desde } } : {};
+  const filtroLeague = league ? { 'opponent.name': league } : {};
 
   const guerras = await db.collection('guerras_cwl').find({
     ...filtroSeason,
+    ...filtroLeague,
     clanTag: { $in: clansFiltro }
   }).toArray();
 
