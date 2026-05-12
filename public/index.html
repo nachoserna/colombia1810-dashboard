@@ -430,21 +430,11 @@ async function loadFamilia(){
       ?`<img class="clan-badge" src="${c.badgeUrls.small}" alt="${c.name}" onerror="this.style.display='none'">`
       :`<div class="clan-badge-placeholder">⚔️</div>`;
     const leagueImg=c.warLeagueIconUrl?`<img src="${c.warLeagueIconUrl}" alt="" style="width:18px;height:18px;object-fit:contain">`:'⚔️';
-    const rankArrow = c.rankColombia
-      ? (c.previousRankColombia > c.rankColombia ? '▲' : c.previousRankColombia < c.rankColombia ? '▼' : '▬')
-      : '';
-    const rankColor = c.rankColombia
-      ? (c.previousRankColombia > c.rankColombia ? 'var(--green,#22c55e)' : c.previousRankColombia < c.rankColombia ? '#ef4444' : 'var(--muted)')
-      : '';
-    const rankStr = c.rankColombia
-      ? `<span style="color:${rankColor};font-size:12px;vertical-align:middle;line-height:1">${rankArrow}</span><span style="vertical-align:middle"> #${c.rankColombia} 🇨🇴</span>`
-      : '—';
     return`<div class="clan-card" onclick="loadClanDetail('${c.tag}')">
       <div class="clan-card-top">${badge}<div><div class="clan-card-name">${c.name}</div><div class="clan-card-tag">${c.tag}</div></div></div>
       <div class="clan-stats">
         <div><div class="clan-stat-label">Miembros</div><div class="clan-stat-value">${c.members||0}</div></div>
         <div><div class="clan-stat-label">Nivel</div><div class="clan-stat-value">${c.level||'—'}</div></div>
-        <div><div class="clan-stat-label">Ranking CO</div><div class="clan-stat-value">${rankStr}</div></div>
       </div>
       <div class="league-badge">${leagueImg} ${c.warLeague||'Unranked'}</div>
     </div>`;
@@ -676,5 +666,10 @@ if(token){
     .then(r=>r.ok?initApp():doLogout()).catch(()=>{});
 }
 </script>
+  <div style="text-align:center;padding:16px 0 12px;font-size:11px;color:#999;border-top:1px solid #eee;margin-top:32px">
+    <a href="https://www.netlify.com" target="_blank" style="color:#999;text-decoration:none">This site is powered by Netlify</a>
+    &nbsp;·&nbsp;
+    <a href="https://github.com/nachoserna/colombia1810-dashboard/blob/main/CODE_OF_CONDUCT.md" target="_blank" style="color:#999;text-decoration:none">Code of Conduct</a>
+  </div>
 </body>
 </html>
